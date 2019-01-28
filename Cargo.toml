@@ -1,0 +1,6 @@
+[package]
+name = "c0-compiler"
+version = "0.1.0"
+authors = ["TuringDisciple <mncubenashe@gmail.com>"]
+
+[dependencies]
