@@ -102,7 +102,11 @@ impl Lexer {
                                     '+' => tokens.push_back(Token::Plus),
                                     '-' => tokens.push_back(Token::Minus),
                                     '/' => tokens.push_back(Token::Div),
-                                    '=' => tokens.push_back(Token::Assign),
+                                    '^' => tokens.push_back(Token::Xor),
+                                    '|' => tokens.push_back(Token::Or),
+                                    '~' => tokens.push_back(Token::Not),
+                                    '%' => tokens.push_back(Token::Mod),
+                                    // TODO: Dealing with remaining tokens that can be something else
                                     _ => break,
                               }
                         }
