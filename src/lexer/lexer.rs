@@ -1,36 +1,53 @@
 use std::fs::File;
 use std::io::{ BufRead, BufReader };
-use std::vec;
+use std::collections::{VecDeque};
+use std::option:: {Option};
+
+enum Type {
+      Int,
+      Struct, 
+}
+
+enum Command {
+      If,
+      Else,
+      While, 
+      For, 
+      Assert, 
+      Error,
+      Return,
+}
 enum Token {
       Id(String),
-      Int,
+      LCurly,
+      RCurly,
+      Equal,
       Bool,
-      Char,
-      Str,
-      Star, 
-      Struct,
-      LBracket,
-      RBracket,
-      Equal, 
-      Dot,
       And,
       Xor,
       Or,
+      Mult,
+      Not,
+      Mod,
+      Div,
+      Plus, 
+      Minus,
+      Gt, 
+      Lt,
+      Gte,
+      Lte,
+      Ne,
+      Assign,
       LShift,
       RShift,
-      Div,
-      Plus,
-      Minus,
+      LBracket,
+      RBracket,
+      Dot,
       SemiColon,
-      Assert,
-      Error,
-      LCurly,
-      RCurly,
       LParen,
       RParen,
-      If,
-      Else,
-      While,
+      Command,
+      Type,
 }
 
 fn open_file(path:String) -> BufReader<File>{
@@ -50,19 +67,49 @@ pub fn print_lines(path:String){
 
 pub struct Lexer {
       FilePath: String, 
-      Tokens: vec::Vec<Token>,
+      Tokens: VecDeque<Token>,
 }
 
 impl Lexer {
       pub fn new(FilePath: String) -> Lexer {
             return Lexer {
                   FilePath, 
-                  Tokens: vec::Vec::new(),
+                  Tokens: VecDeque::new(),
             }
       }
 
-      pub fn lex(&mut self) {
-            
+      fn chars(self) -> VecDeque<char>{
+            // Lex simple tokens
+            let mut chars: VecDeque<char> = VecDeque::new();
+            for line in open_file(self.FilePath).lines() {
+                  match line {
+                        Ok(value) => for c in value.chars() {
+                              chars.push_back(c);
+                        },
+                        Err(_) => break,
+                  }
+            }
+            chars
+      }
+
+      fn lex_tokens(self, ) -> VecDeque<Token> {
+            let mut chars: VecDeque<char> = self.chars();
+            let mut tokens: VecDeque<Token> = VecDeque::new();
+            loop {
+                  match chars.pop_front() {
+                        Some(c) => {
+                              match c {
+                                    '+' => tokens.push_back(Token::Plus),
+                                    '-' => tokens.push_back(Token::Minus),
+                                    '/' => tokens.push_back(Token::Div),
+                                    '=' => tokens.push_back(Token::Assign),
+                                    _ => break,
+                              }
+                        }
+                        _ => break,
+                  }
+            }
+            tokens
       }
 
 

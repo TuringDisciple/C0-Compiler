@@ -5,6 +5,4 @@ int exp(int b, int e)
     return 1;
   else
     return b * exp(b, e-1);
-}int main() {
-      if 
 }
