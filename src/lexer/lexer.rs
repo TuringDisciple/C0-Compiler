@@ -22,24 +22,31 @@ enum Token {
       LCurly,
       RCurly,
       Equal,
+      Equality,
       Bool,
       And,
       Xor,
       Or,
       Mult,
+      MultEq,
       Not,
       Mod,
       Div,
-      Plus, 
+      DivEq,
+      Plus,
+      PlusEq, 
       Minus,
+      MinusEq,
       Gt, 
       Lt,
       Gte,
       Lte,
-      Ne,
+      NotEq,
       Assign,
       LShift,
+      LShiftEq,
       RShift,
+      RShiftEq,
       LBracket,
       RBracket,
       Dot,
@@ -99,13 +106,12 @@ impl Lexer {
                   match chars.pop_front() {
                         Some(c) => {
                               match c {
-                                    '+' => tokens.push_back(Token::Plus),
-                                    '-' => tokens.push_back(Token::Minus),
-                                    '/' => tokens.push_back(Token::Div),
-                                    '^' => tokens.push_back(Token::Xor),
-                                    '|' => tokens.push_back(Token::Or),
-                                    '~' => tokens.push_back(Token::Not),
-                                    '%' => tokens.push_back(Token::Mod),
+                                    '~' => tokens.push_back(Token::Not), 
+                                    '(' => tokens.push_back(Token::LParen),
+                                    ')' => tokens.push_back(Token::RParen),
+                                    '=' => tokens.push_back(
+                                              self.compound_expression(Token::Equal, chars.copy())
+                                          )
                                     // TODO: Dealing with remaining tokens that can be something else
                                     _ => break,
                               }
@@ -114,6 +120,85 @@ impl Lexer {
                   }
             }
             tokens
+      }
+
+      fn compound_expression(self, head: Token, chars_copy: VecDeque<char>) -> Token {
+            let mut tail = chars_copy.pop_front().unwrap();
+            let mut tail2 = chars_copy.pop_front().unwrap();
+            match head {
+                  Equal => {
+                        match tail {
+                              '=' => Token::Equality,
+                              _ => Token::Equal,
+                        }
+                  }
+                  Lt => {
+                        match tail {
+                              '=' => Token::Lte,
+                              '<' => match tail2 { 
+                                   '=' => Token::LShiftEq,
+                                    _  => Token::LShift
+                                    },
+                              _ => Token::Lt,
+                        }
+                  }
+                  Gt => {
+                        match tail {
+                              '=' => Token::Gte,
+                              '>' => match tail2 {
+                                    '=' => Token::RShiftEq,
+                                    _   => Token::RShift, 
+                              }, 
+                              _   => Token::Gt,
+                        }
+                  }
+                  Not => {
+                        match tail {
+                              '=' => Token::NotEq,
+                              _   => Token::Not,
+                        }
+                  }
+                  Plus => {
+                        match tail {
+                              '+' | '=' => Token::PlusEq, 
+                              _         => Token::Plus
+                        }
+                  }
+                  Minus => {
+                        match tail {
+                              '-' | '=' => Token::MinusEq,
+                              _         => Token::Minus,
+                        }
+                  }
+                  Div => {
+                        match tail {
+                              '=' => Token::DivEq,
+                              _   => Token::Div,
+                        }
+                  }
+                  Mult => {
+                        match tail {
+                              '=' => Token::MultEq, 
+                              _   => Token::Mult,
+                        }
+                  }
+                  Or => {
+                        match tail {
+                              '=' => Token::Or
+                        }
+                  }
+                  Mod => {
+
+                  }
+                  Xor => {
+
+                  }
+                  And => {
+
+                  }
+                  // TODO: Finish integer ops
+                  // TODO: Boolean expressions
+            }
       }
 
 
