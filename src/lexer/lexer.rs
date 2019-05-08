@@ -99,6 +99,7 @@ impl Lexer {
 pub fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
       let mut tokens: VecDeque<Token> = VecDeque::new();
       loop {
+            println!("{:?}", Chars);
             match Chars.pop_front() {
                   Some(c) => {
                         match c {
@@ -119,7 +120,7 @@ pub fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
                               '|' => tokens.push_back(compound_expr(Token::Or   ,    Chars)), 
                               '0'|'1'|'2'|
                               '3'|'4'|'5'|
-                              '6'|'7'|'8'|'9' => tokens.push_back(numeric(Chars)),
+                              '6'|'7'|'8'|'9' => tokens.push_back(numeric(c, Chars)),
 
 
                               // TODO: Dealing with remaining tokens that can be something else
@@ -257,10 +258,25 @@ fn compound_expr(head: Token, chars: &mut VecDeque<char>) -> Token {
       }
 }
 
-fn numeric(chars: &mut VecDeque<char>) -> Token {
-      Token::Num(0)
+fn numeric(head: char, chars: &mut VecDeque<char>) -> Token {
+      let mut sum: u32 =0;
+      sum = head.to_digit(10).unwrap_or(0);
+      loop {
+            match chars.pop_front() {
+                  Some(c) => {
+                        match c {
+                              '0'|'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'|'9' =>{
+                                    if sum <= (4294967295/10){
+                                          sum = 10 * sum + c.to_digit(10).unwrap_or(0);
+                                    };
+                              },
+                              _        => return Token::Num(sum), 
+                        }
+                  },
+                  _   => return Token::Num(sum),
+            }
+      }
 }
-
 
 #[cfg(test)]
 mod test {
@@ -324,7 +340,20 @@ mod test {
             assert_eq!(Token::BooleanAnd, tokens.pop_front().unwrap_or(Token::Undefined));
             assert_eq!(Token::BooleanOr,  tokens.pop_front().unwrap_or(Token::Undefined));
             assert_eq!(Token::BooleanNot, tokens.pop_front().unwrap_or(Token::Undefined));
+      }
 
+      #[test]
+      pub fn lexing_numerics() {
+            let mut src_file = String::from("./src/lexer/tests/numerics.c0");
+            let mut lexer = Lexer::new(&mut src_file);
+            let mut tokens = lex_tokens(&mut lexer.Chars);
 
+            assert_eq!(Token::Num(1),         tokens.pop_front().unwrap_or(Token::Undefined));
+            assert_eq!(Token::Num(12),        tokens.pop_front().unwrap_or(Token::Undefined));      
+            assert_eq!(Token::Num(123),       tokens.pop_front().unwrap_or(Token::Undefined));
+            assert_eq!(Token::Num(1234),      tokens.pop_front().unwrap_or(Token::Undefined));
+            assert_eq!(Token::Num(12345),     tokens.pop_front().unwrap_or(Token::Undefined));
+            assert_eq!(Token::Num(123456),    tokens.pop_front().unwrap_or(Token::Undefined));
+            assert_eq!(Token::Num(1234567),   tokens.pop_front().unwrap_or(Token::Undefined));
       }
 }
