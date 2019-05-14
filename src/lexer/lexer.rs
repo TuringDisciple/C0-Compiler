@@ -1,11 +1,6 @@
 use std::fs::File;
 use std::io::{ BufRead, BufReader };
-use std::collections::{VecDeque};
-
-enum Type {
-      Int,
-      Struct, 
-}
+use std::collections::{VecDeque, LinkedList};
 
 enum Command {
       If,
@@ -16,14 +11,21 @@ enum Command {
       Error,
       Return,
 }
+
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum Collection<T> {
+      Array(T), 
+      Pointer(T),
+}
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum Token {
-      Undefined, 
+      // Character and operators
+      Undefined(Option<char>), 
       LCurly,
       RCurly,
       Equal,
       Equality,
-      Bool,
       And,
       AndEq,
       Xor,
@@ -65,6 +67,14 @@ pub enum Token {
       BooleanAnd, 
       BooleanOr, 
       Num(u32),
+
+      // Types
+      Int, 
+      Bool, 
+      Char,
+      String_, 
+      Func(), 
+      Collection,
 }
 
 pub fn open_file(path:&mut String) -> BufReader<File>{
@@ -122,8 +132,12 @@ pub fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
                               '3'|'4'|'5'|
                               '6'|'7'|'8'|'9' => tokens.push_back(numeric(c, Chars)),
 
-
-                              // TODO: Dealing with remaining tokens that can be something else
+                              'i' | 'b' | 'c' | 
+                              's' | 'v' | 'a' |
+                              'e' | 'r' | 'w' |
+                              'f'  => tokens.push_back(keyword(c, Chars)), 
+                              
+                              // TODO: Types
                               ' ' => continue,
                               _ => continue,
                         }
@@ -146,22 +160,25 @@ fn chars(FilePath: &mut String) -> VecDeque<char>{
       }
       chars
 }
+let re_insert = 
+| t1: char, t2: char, cs: &mut VecDeque<char>, ret: Token| -> Token {
+      cs.push_front(t2); 
+      cs.push_front(t1);
+      ret
+}
+
+let re_insert2 = | t1: char, cs: &mut VecDeque<char>, ret: Token| -> Token {
+      cs.push_back(t1);
+      ret
+}
+
+let re_insert3 = |t1: Vec<char>, cs: &mut VecDeque<char> | -> Token {
+
+}
 
 fn compound_expr(head: Token, chars: &mut VecDeque<char>) -> Token {
       let tail  = chars.pop_front().unwrap_or(' ');
       let tail2 = chars.pop_front().unwrap_or(' ');
-      let re_insert = 
-      | t1: char, t2: char, cs: &mut VecDeque<char>, ret: Token| -> Token {
-            cs.push_front(t2); 
-            cs.push_front(t1);
-            ret
-      };
-
-      let re_insert2 = | t1: char, cs: &mut VecDeque<char>, ret: Token| -> Token {
-            cs.push_back(t1);
-            ret
-      };
-
       match head {
             Token::Equal => {
                   match tail {
@@ -278,6 +295,24 @@ fn numeric(head: char, chars: &mut VecDeque<char>) -> Token {
       }
 }
 
+fn match(pattern: Vec<char>, chars: &VecDeque<char>) -> Option<Token>{
+      let mut buff: Vec<char>;
+      
+      for i in pattern.len() {
+            buff.push(chars.pop_front());
+            if chars[i] != buff[i] {
+                  re_insert
+            }
+      }
+      
+}
+fn keyword(head: char, chars: &VecDeque<char>) -> Token {
+
+
+
+      Token::Undefined(Some(head))
+}
+
 #[cfg(test)]
 mod test {
       use lexer::lexer::*;
@@ -286,60 +321,61 @@ mod test {
             let mut src_file = String::from("./src/lexer/tests/simple_expressions.c0");
             let mut lexer = Lexer::new(&mut src_file);
             let mut tokens = lex_tokens(&mut lexer.Chars);
-            assert_eq!(Token::Plus,   tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Minus,  tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Mult,   tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Lt,     tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Gt,     tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Or,     tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Xor,    tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::BitNot, tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Div,    tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Equal,  tokens.pop_front().unwrap_or(Token::Undefined));
+            assert_eq!(Token::Plus,   tokens.pop_front().unwrap_or(Token::Undefined(None));
+            assert_eq!(Token::Minus,  tokens.pop_front().unwrap_or(Token::Undefined(None));
+            assert_eq!(Token::Mult,   tokens.pop_front().unwrap_or(Token::Undefined(None));
+            assert_eq!(Token::Lt,     tokens.pop_front().unwrap_or(Token::Undefined(None));
+            assert_eq!(Token::Gt,     tokens.pop_front().unwrap_or(Token::Undefined(None));
+            assert_eq!(Token::Or,     tokens.pop_front().unwrap_or(Token::Undefined(None));
+            assert_eq!(Token::Xor,    tokens.pop_front().unwrap_or(Token::Undefined(None));
+            assert_eq!(Token::BitNot, tokens.pop_front().unwrap_or(Token::Undefined(None));
+            assert_eq!(Token::Div,    tokens.pop_front().unwrap_or(Token::Undefined(None));
+            assert_eq!(Token::Equal,  tokens.pop_front().unwrap_or(Token::Undefined(None));
 
       }
+
       #[test]
       pub fn lexing_expressions() {
             let mut src_file = String::from("./src/lexer/tests/expressions.c0");
             let mut lexer = Lexer::new(&mut src_file);
             let mut tokens = lex_tokens(&mut lexer.Chars);
             // println!("{:?}", tokens.len());
-            assert_eq!(Token::Mult,       tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Minus,      tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Plus,       tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Div,        tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Equal,      tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Equality,   tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Lt,         tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Lte,        tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Gte,        tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Gt,         tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::NotEq,      tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Mod,        tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::LShift,     tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::RShift,     tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::And,        tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Xor,        tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Or,         tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::BitNot,     tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::LParen,     tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::RParen,     tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::PlusEq,     tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::MinusEq,    tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::DivEq,      tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::MultEq,     tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::OrEq,       tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::LShiftEq,   tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::RShiftEq,   tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::ModEq,      tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::BitNotEq,   tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::AndEq,      tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::XorEq,      tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::PlusEq,     tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::MinusEq,    tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::BooleanAnd, tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::BooleanOr,  tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::BooleanNot, tokens.pop_front().unwrap_or(Token::Undefined));
+            assert_eq!(Token::Mult,       tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Minus,      tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Plus,       tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Div,        tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Equal,      tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Equality,   tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Lt,         tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Lte,        tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Gte,        tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Gt,         tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::NotEq,      tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Mod,        tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::LShift,     tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::RShift,     tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::And,        tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Xor,        tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Or,         tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::BitNot,     tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::LParen,     tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::RParen,     tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::PlusEq,     tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::MinusEq,    tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::DivEq,      tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::MultEq,     tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::OrEq,       tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::LShiftEq,   tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::RShiftEq,   tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::ModEq,      tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::BitNotEq,   tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::AndEq,      tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::XorEq,      tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::PlusEq,     tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::MinusEq,    tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::BooleanAnd, tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::BooleanOr,  tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::BooleanNot, tokens.pop_front().unwrap_or(Token::Undefined(None)));
       }
 
       #[test]
@@ -348,12 +384,12 @@ mod test {
             let mut lexer = Lexer::new(&mut src_file);
             let mut tokens = lex_tokens(&mut lexer.Chars);
 
-            assert_eq!(Token::Num(1),         tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Num(12),        tokens.pop_front().unwrap_or(Token::Undefined));      
-            assert_eq!(Token::Num(123),       tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Num(1234),      tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Num(12345),     tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Num(123456),    tokens.pop_front().unwrap_or(Token::Undefined));
-            assert_eq!(Token::Num(1234567),   tokens.pop_front().unwrap_or(Token::Undefined));
+            assert_eq!(Token::Num(1),         tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Num(12),        tokens.pop_front().unwrap_or(Token::Undefined(None)));      
+            assert_eq!(Token::Num(123),       tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Num(1234),      tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Num(12345),     tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Num(123456),    tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Num(1234567),   tokens.pop_front().unwrap_or(Token::Undefined(None)));
       }
 }
