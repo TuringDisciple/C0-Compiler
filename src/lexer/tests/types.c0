@@ -1,1 +1,1 @@
-assert alloc  bool break char continue
+assert alloc alloc_array bool break char continue error for if int string struct typedef return while void 

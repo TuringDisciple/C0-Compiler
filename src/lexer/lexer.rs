@@ -62,13 +62,13 @@ pub enum Token {
       Int, 
       Bool, 
       Char,
-      String_, 
+      String, 
       Void, 
       Func(), 
       Collection,
+      Struct,
       // TODO: how to represent structs
       // TODO: How to represent collection of arguments for function types 
-      // TODO: 
       // Keywords
       If, 
       While, 
@@ -105,6 +105,7 @@ pub struct Lexer {
       Chars: VecDeque<char>,
 }
 
+// TODO: Grammar extensions for annotations
 impl Lexer {
       pub fn new(mut FilePath: &mut String) -> Lexer {
             Lexer {
@@ -145,7 +146,7 @@ pub fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
                               'i' | 'b' | 'c' | 
                               's' | 'v' | 'a' |
                               'e' | 'r' | 'w' |
-                              'f'  => tokens.push_back(keyword(c, Chars)),
+                              'f' | '_' | 't'  => tokens.push_back(keyword(c, Chars)),
                               
                               // TODO: Types
                               ' ' => continue,
@@ -363,7 +364,6 @@ fn keyword(head: char, chars: &mut VecDeque<char>) -> Token {
             'a' => {
                   patterns.insert(Token::Assert, vec!['s', 's', 'e', 'r', 't']);
                   patterns.insert(Token::Alloc, vec!['l', 'l', 'o', 'c']);
-                  // patterns.insert(Token::AllocArray, vec!['l', 'l', 'o', 'c', '_', 'a', 'r', 'r', 'a','y']);
                   check_patterns(&patterns, chars)
             }
 
@@ -384,11 +384,47 @@ fn keyword(head: char, chars: &mut VecDeque<char>) -> Token {
                   check_patterns(&patterns, chars)
             }
 
+            'f' => {
+                  patterns.insert(Token::For, vec!['o', 'r']);
+                  check_patterns(&patterns, chars)
+            }
+
             'i' => {
                   patterns.insert(Token::If, vec!['f']);
                   patterns.insert(Token::Int, vec!['n', 't']);
                   check_patterns(&patterns, chars)
 
+            }
+
+            's' => {
+                  patterns.insert(Token::String, vec!['t', 'r', 'i', 'n', 'g']);
+                  patterns.insert(Token::Struct, vec!['t', 'r', 'u', 'c', 't']);
+                  check_patterns(&patterns, chars)
+            }
+
+            't' => {
+                  patterns.insert(Token::Typedef, vec!['y', 'p', 'e', 'd', 'e', 'f']);
+                  check_patterns(&patterns, chars)
+            }
+
+            'r' => {
+                  patterns.insert(Token::Return, vec!['e', 't', 'u', 'r', 'n']);
+                  check_patterns(&patterns, chars) 
+            }
+
+            'w' => {
+                  patterns.insert(Token::While, vec!['h', 'i', 'l', 'e']);
+                  check_patterns(&patterns, chars)
+            }
+
+            'v' => {
+                  patterns.insert(Token::Void, vec!['o', 'i', 'd']);
+                  check_patterns(&patterns, chars)
+            }
+
+            '_' => {
+                  patterns.insert(Token::AllocArray, vec!['a', 'r', 'r', 'a', 'y']);
+                  check_patterns(&patterns, chars)
             }
 
             _ => Token::Undefined(Some(head)), 
@@ -483,9 +519,21 @@ mod test {
 
             assert_eq!(Token::Assert,     tokens.pop_front().unwrap_or(Token::Undefined(None)));
             assert_eq!(Token::Alloc,      tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Alloc,      tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::AllocArray, tokens.pop_front().unwrap_or(Token::Undefined(None)));
             assert_eq!(Token::Bool,       tokens.pop_front().unwrap_or(Token::Undefined(None)));
             assert_eq!(Token::Break,      tokens.pop_front().unwrap_or(Token::Undefined(None)));
             assert_eq!(Token::Char,       tokens.pop_front().unwrap_or(Token::Undefined(None)));
             assert_eq!(Token::Continue,   tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Error,      tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::For,        tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::If,         tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Int,        tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::String,     tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Struct,     tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Typedef,    tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Return,     tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::While,      tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Void,       tokens.pop_front().unwrap_or(Token::Undefined(None)));
       }
 }
