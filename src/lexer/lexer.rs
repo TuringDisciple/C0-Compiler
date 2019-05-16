@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::{ BufRead, BufReader };
-use std::collections::{VecDeque, LinkedList, HashMap};
+use std::collections::{VecDeque, HashMap};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum Collection<T> {
@@ -82,6 +82,7 @@ pub enum Token {
       Break, 
       Continue, 
       Semicolon, 
+      Use,
 
 }
 
@@ -146,7 +147,8 @@ pub fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
                               'i' | 'b' | 'c' | 
                               's' | 'v' | 'a' |
                               'e' | 'r' | 'w' |
-                              'f' | '_' | 't'  => tokens.push_back(keyword(c, Chars)),
+                              'f' | '_' | 't' |
+                              '#' => tokens.push_back(keyword(c, Chars)),
                               
                               // TODO: Types
                               ' ' => continue,
@@ -427,6 +429,11 @@ fn keyword(head: char, chars: &mut VecDeque<char>) -> Token {
                   check_patterns(&patterns, chars)
             }
 
+            '#' => {
+                  patterns.insert(Token::Use, vec!['u', 's', 'e']);
+                  check_patterns(&patterns, chars)
+            }
+
             _ => Token::Undefined(Some(head)), 
       }
 }
@@ -535,5 +542,7 @@ mod test {
             assert_eq!(Token::Return,     tokens.pop_front().unwrap_or(Token::Undefined(None)));
             assert_eq!(Token::While,      tokens.pop_front().unwrap_or(Token::Undefined(None)));
             assert_eq!(Token::Void,       tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Use,        tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::SemiColon,  tokens.pop_front().unwrap_or(Token::Undefined(None)));
       }
 }
