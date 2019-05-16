@@ -117,8 +117,9 @@ impl Lexer {
 pub fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
       let mut tokens: VecDeque<Token> = VecDeque::new();
       loop {
-            println!("{:?}", Chars);
+            // println!("{:?}", Chars);
             match Chars.pop_front() {
+
                   Some(c) => {
                         match c {
                               ';' => tokens.push_back(Token::SemiColon),
@@ -307,31 +308,38 @@ fn numeric(head: char, chars: &mut VecDeque<char>) -> Token {
       }
 }
 
-fn pattern_check(p: Vec<char>, chars: &mut VecDeque<char>) -> Option<Token> {
-      let mut buff: Vec<char> = Vec::new();
-      for i in 0..p.len() {
-            match chars.pop_front() {
-                  Some(c) => buff.push(c), 
-                  None    => {
-                              re_insert3(buff, chars); 
-                              return None;
-                        }
-            }
+fn copy_n(n: usize, vec: &mut VecDeque<char>) -> Vec<char>{
+      let mut ret: Vec<char> = Vec::new();
 
-            if p[i] != buff[i] {
-                  re_insert3(buff, chars);
-                  return None;
+      for i in 0..n {
+            match vec.get(i) {
+                  Some(c) => ret.push(*c),
+                  None    => return ret,
             }
       }
 
-      Some(Token::Undefined(None))
+      ret
+}
+
+fn pattern_check(p: Vec<char>, chars: &mut VecDeque<char>) -> Option<Token> {
+      
+      let mut next_n: Vec<char> = copy_n(p.len(), chars);
+
+      if next_n == p {
+            return Some(Token::Undefined(None));
+      }
+
+      None
 }
 
 fn match_keyword(patterns: &HashMap<Token, Vec<char>>, chars: &mut VecDeque<char>) -> Option<Token>{
 
       for (t, p) in patterns.iter() {
             match pattern_check(p.to_vec(), chars) {
-                  Some(_) => return Some(*t),
+                  Some(_) => {
+                        chars.drain(0..p.len());
+                        return Some(*t);
+                  }
                   None    => (),
             }
 
@@ -355,33 +363,33 @@ fn keyword(head: char, chars: &mut VecDeque<char>) -> Token {
             'a' => {
                   patterns.insert(Token::Assert, vec!['s', 's', 'e', 'r', 't']);
                   patterns.insert(Token::Alloc, vec!['l', 'l', 'o', 'c']);
-                  patterns.insert(Token::AllocArray, vec!['l', 'l', 'o', 'c', '_', 'a', 'r', 'r', 'a','y']);
+                  // patterns.insert(Token::AllocArray, vec!['l', 'l', 'o', 'c', '_', 'a', 'r', 'r', 'a','y']);
                   check_patterns(&patterns, chars)
             }
 
-            // 'b' => {
-            //       patterns.insert(Token::Bool, vec!['o', 'o', 'l']);
-            //       patterns.insert(Token::Break, vec!['r', 'e', 'a', 'k']);
-            //       check_patterns(&patterns, chars)
-            // }
+            'b' => {
+                  patterns.insert(Token::Bool, vec!['o', 'o', 'l']);
+                  patterns.insert(Token::Break, vec!['r', 'e', 'a', 'k']);
+                  check_patterns(&patterns, chars)
+            }
 
-            // 'c' => {
-            //       patterns.insert(Token::Char, vec!['h', 'a', 'r']);
-            //       patterns.insert(Token::Continue, vec!['o', 'n', 't', 'i', 'n', 'u', 'e']);
-            //       check_patterns(&patterns, chars)
-            // }
+            'c' => {
+                  patterns.insert(Token::Char, vec!['h', 'a', 'r']);
+                  patterns.insert(Token::Continue, vec!['o', 'n', 't', 'i', 'n', 'u', 'e']);
+                  check_patterns(&patterns, chars)
+            }
 
-            // 'e' => {
-            //       patterns.insert(Token::Error, vec!['r', 'r', 'o', 'r']);
-            //       check_patterns(&patterns, chars)
-            // }
+            'e' => {
+                  patterns.insert(Token::Error, vec!['r', 'r', 'o', 'r']);
+                  check_patterns(&patterns, chars)
+            }
 
-            // 'i' => {
-            //       patterns.insert(Token::If, vec!['f']);
-            //       patterns.insert(Token::Int, vec!['n', 't']);
-            //       check_patterns(&patterns, chars)
+            'i' => {
+                  patterns.insert(Token::If, vec!['f']);
+                  patterns.insert(Token::Int, vec!['n', 't']);
+                  check_patterns(&patterns, chars)
 
-            // }
+            }
 
             _ => Token::Undefined(Some(head)), 
       }
@@ -474,11 +482,10 @@ mod test {
             let mut tokens = lex_tokens(&mut lexer.Chars);
 
             assert_eq!(Token::Assert,     tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            // assert_eq!(Token::Alloc,      tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            // assert_eq!(Token::AllocArray, tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            // assert_eq!(Token::Bool,       tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            // assert_eq!(Token::Break,      tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            // assert_eq!(Token::Char,       tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            // assert_eq!(Token::Continue,   tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Alloc,      tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Bool,       tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Break,      tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Char,       tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Continue,   tokens.pop_front().unwrap_or(Token::Undefined(None)));
       }
 }
