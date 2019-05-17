@@ -2,6 +2,7 @@ use lexer::lexer::*;
 
 pub struct Parser {
       lexer: Lexer,
+      parseTree: 
 }
 
 impl Parser {
@@ -16,7 +17,9 @@ impl Parser {
       }
 }
 
-pub fn Parse()
+pub fn Parse() {
+
+}
 
 
 #[cfg(test)]
