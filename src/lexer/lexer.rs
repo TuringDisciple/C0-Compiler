@@ -63,8 +63,7 @@ pub enum Token {
       Bool, 
       Char,
       String, 
-      Void, 
-      Func(), 
+      Void,
       Collection,
       Struct,
       // TODO: how to represent structs
@@ -103,15 +102,14 @@ pub fn print_lines(path: &mut String){
 
 pub struct Lexer {
       Tokens: VecDeque<Token>,
-      Chars: VecDeque<char>,
 }
 
 // TODO: Grammar extensions for annotations
 impl Lexer {
       pub fn new(mut FilePath: &mut String) -> Lexer {
+            let Tokens = lex_tokens(&mut chars(&mut FilePath));
             Lexer {
-                  Tokens: VecDeque::new(), 
-                  Chars: chars(&mut FilePath),
+                  Tokens,
             }
       }
 }
@@ -127,22 +125,23 @@ pub fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
                               ';' => tokens.push_back(Token::SemiColon),
                               '(' => tokens.push_back(Token::LParen),
                               ')' => tokens.push_back(Token::RParen),
-                              '~' => tokens.push_back(compound_expr(Token::BitNot,   Chars)), 
-                              '=' => tokens.push_back(compound_expr(Token::Equal,    Chars)),
-                              '!' => tokens.push_back(compound_expr(Token::Not  ,    Chars)),
-                              '+' => tokens.push_back(compound_expr(Token::Plus ,    Chars)),
-                              '-' => tokens.push_back(compound_expr(Token::Minus,    Chars)),
-                              '&' => tokens.push_back(compound_expr(Token::And  ,    Chars)),
-                              '%' => tokens.push_back(compound_expr(Token::Mod  ,    Chars)),
-                              '/' => tokens.push_back(compound_expr(Token::Div  ,    Chars)),
-                              '*' => tokens.push_back(compound_expr(Token::Mult ,    Chars)), 
-                              '<' => tokens.push_back(compound_expr(Token::Lt   ,    Chars)), 
-                              '>' => tokens.push_back(compound_expr(Token::Gt   ,    Chars)),
-                              '^' => tokens.push_back(compound_expr(Token::Xor  ,    Chars)), 
-                              '|' => tokens.push_back(compound_expr(Token::Or   ,    Chars)), 
+                              '~' => tokens.push_back(ops(Token::BitNot,   Chars)), 
+                              '=' => tokens.push_back(ops(Token::Equal,    Chars)),
+                              '!' => tokens.push_back(ops(Token::Not  ,    Chars)),
+                              '+' => tokens.push_back(ops(Token::Plus ,    Chars)),
+                              '-' => tokens.push_back(ops(Token::Minus,    Chars)),
+                              '&' => tokens.push_back(ops(Token::And  ,    Chars)),
+                              '%' => tokens.push_back(ops(Token::Mod  ,    Chars)),
+                              '/' => tokens.push_back(ops(Token::Div  ,    Chars)),
+                              '*' => tokens.push_back(ops(Token::Mult ,    Chars)), 
+                              '<' => tokens.push_back(ops(Token::Lt   ,    Chars)), 
+                              '>' => tokens.push_back(ops(Token::Gt   ,    Chars)),
+                              '^' => tokens.push_back(ops(Token::Xor  ,    Chars)), 
+                              '|' => tokens.push_back(ops(Token::Or   ,    Chars)), 
                               '0'|'1'|'2'|
                               '3'|'4'|'5'|
-                              '6'|'7'|'8'|'9' => tokens.push_back(numeric(c, Chars)),
+                              '6'|'7'|'8'|
+                              '9' => tokens.push_back(numeric(c, Chars)),
 
                               'i' | 'b' | 'c' | 
                               's' | 'v' | 'a' |
@@ -150,7 +149,6 @@ pub fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
                               'f' | '_' | 't' |
                               '#' => tokens.push_back(keyword(c, Chars)),
                               
-                              // TODO: Types
                               ' ' => continue,
                               _ => continue,
                         }
@@ -162,7 +160,6 @@ pub fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
 }
 
 fn chars(FilePath: &mut String) -> VecDeque<char>{
-      // Lex simple tokens
       let mut chars: VecDeque<char> = VecDeque::new();
       for line in open_file(FilePath).lines() {
             match line {
@@ -186,13 +183,7 @@ fn re_insert2 (t1: char, cs: &mut VecDeque<char>, ret: Token) -> Token {
       ret
 }
 
-fn re_insert3(t1: Vec<char>, cs: &mut VecDeque<char>) -> () {
-      for i in t1.len()..0 {
-            cs.push_front(t1[i]);
-      }
-}
-
-fn compound_expr(head: Token, chars: &mut VecDeque<char>) -> Token {
+fn ops(head: Token, chars: &mut VecDeque<char>) -> Token {
       let tail  = chars.pop_front().unwrap_or(' ');
       let tail2 = chars.pop_front().unwrap_or(' ');
       match head {
@@ -434,7 +425,7 @@ fn keyword(head: char, chars: &mut VecDeque<char>) -> Token {
                   check_patterns(&patterns, chars)
             }
 
-            _ => Token::Undefined(Some(head)), 
+            _   => Token::Undefined(Some(head)), 
       }
 }
 
