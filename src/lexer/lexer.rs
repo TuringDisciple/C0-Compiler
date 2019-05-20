@@ -100,6 +100,7 @@ pub fn print_lines(path: &mut String){
     }
 }
 
+#[derive(Clone)]
 pub struct Lexer {
       tokens: VecDeque<Token>,
 }
@@ -110,6 +111,13 @@ impl Lexer {
             let tokens = lex_tokens(&mut chars(&mut FilePath));
             Lexer {
                   tokens,
+            }
+      }
+
+      // Unintialised lexer object returned, for testing
+      pub fn empty() -> Lexer {
+            Lexer{
+                  tokens: VecDeque::new(),
             }
       }
 
@@ -154,7 +162,7 @@ fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
                               '#' => tokens.push_back(keyword(c, Chars)),
                               
                               ' ' => continue,
-                              _ => continue,
+                              _   => tokens.push_back(Token::Undefined(Some(c))),
                         }
                   }
                   _ => break,
