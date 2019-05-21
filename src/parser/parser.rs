@@ -8,9 +8,22 @@ use std::iter::Peekable;
 pub enum LexClass {
       Empty,
       Id    (Token, Vec<Token>),
-      Num   (Box<LexClass>     ),
-      DecNum(Token),
-      HexNum(Token, Vec<Token>), 
+      Num   (Box<LexClass>    ),
+      DecNum(Token            ),
+      HexNum(Vec<Token>       ), 
+      StrLit(Vec<Token>       ),
+      ChrLit(Vec<Token>       ), 
+      LibLit(Vec<Token>       ), 
+      SChar(Vec<Token>        ), 
+      CChar(Token             ),
+      NChar(Token             ), 
+      LChar(Token             ), 
+      Esc(Token               ), 
+      Sep(Token               ), 
+      Unop(Token              ), 
+      Binop(Token             ), 
+      Asnop(Token             ), 
+      Postop(Token            ),
 }
 
 #[derive(Clone)]
@@ -39,8 +52,8 @@ impl Parser {
       }
 }
 
-// Returns: Parse tree in the form of a vector of lexclasses,
-pub fn parse(tokens: &mut VecDeque<Token>) -> Vec<LexClass> {
+// Returns: Parse tree in the form of a vector of lex class tokens,
+pub fn parse_tokens(tokens: &mut VecDeque<Token>) -> Vec<LexClass> {
       let mut tokens_peek = tokens.iter().peekable();
       let mut parse_tree = Vec::new();
       loop {
@@ -48,8 +61,53 @@ pub fn parse(tokens: &mut VecDeque<Token>) -> Vec<LexClass> {
                   Some(Token::Undefined(Some(c))) =>
                         parse_tree.push(parse_id(Token::Undefined(Some(*c)), &mut tokens_peek)),
                   Some(Token::Num(n)) =>
-                        parse_tree.push(parse_num(Token::Num(*n), &mut tokens_peek)), 
-
+                        parse_tree.push(parse_num(Token::Num(*n), &mut tokens_peek)),
+                  Some(Token::LParen)      => parse_tree.push(LexClass::Sep(Token::LParen)),
+                  Some(Token::RParen)      => parse_tree.push(LexClass::Sep(Token::RParen)), 
+                  Some(Token::LBracket)    => parse_tree.push(LexClass::Sep(Token::LBracket)),
+                  Some(Token::RBracket)    => parse_tree.push(LexClass::Sep(Token::RBracket)),
+                  Some(Token::LCurly)      => parse_tree.push(LexClass::Sep(Token::LCurly)),
+                  Some(Token::RCurly)      => parse_tree.push(LexClass::Sep(Token::RCurly)), 
+                  Some(Token::Comma)       => parse_tree.push(LexClass::Sep(Token::Comma)),
+                  Some(Token::SemiColon)   => parse_tree.push(LexClass::Sep(Token::SemiColon)),
+                  Some(Token::Not)         => parse_tree.push(LexClass::Unop(Token::Not)), 
+                  Some(Token::BitNot)      => parse_tree.push(LexClass::Unop(Token::BitNot)),
+                  Some(Token::Minus)       => parse_tree.push(LexClass::Unop(Token::Minus)), 
+                  Some(Token::Mult)        => parse_tree.push(LexClass::Unop(Token::Mult)),
+                  Some(Token::FieldSelect) => parse_tree.push(LexClass::Binop(Token::FieldSelect)),
+                  Some(Token::FieldDeref)  => parse_tree.push(LexClass::Binop(Token::FieldDeref)),
+                  Some(Token::Div)         => parse_tree.push(LexClass::Binop(Token::Div)), 
+                  Some(Token::Mod)         => parse_tree.push(LexClass::Binop(Token::Mod)),
+                  Some(Token::Plus)        => parse_tree.push(LexClass::Binop(Token::Plus)), 
+                  Some(Token::LShift)      => parse_tree.push(LexClass::Binop(Token::LShift)),
+                  Some(Token::RShift)      => parse_tree.push(LexClass::Binop(Token::RShift)),
+                  Some(Token::Lt)          => parse_tree.push(LexClass::Binop(Token::Lt)), 
+                  Some(Token::Lte)         => parse_tree.push(LexClass::Binop(Token::Lte)), 
+                  Some(Token::Gte)         => parse_tree.push(LexClass::Binop(Token::Gte)), 
+                  Some(Token::Gt)          => parse_tree.push(LexClass::Binop(Token::Gt)), 
+                  Some(Token::Equality)    => parse_tree.push(LexClass::Binop(Token::Equality)), 
+                  Some(Token::NotEq)       => parse_tree.push(LexClass::Binop(Token::NotEq)), 
+                  Some(Token::And)         => parse_tree.push(LexClass::Binop(Token::And)), 
+                  Some(Token::Xor)         => parse_tree.push(LexClass::Binop(Token::Xor)), 
+                  Some(Token::Or)          => parse_tree.push(LexClass::Binop(Token::Or)), 
+                  Some(Token::BooleanAnd)  => parse_tree.push(LexClass::Binop(Token::BooleanAnd)),
+                  Some(Token::BooleanOr)   => parse_tree.push(LexClass::Binop(Token::BooleanOr)), 
+                  Some(Token::BooleanNot)  => parse_tree.push(LexClass::Binop(Token::BooleanNot)), 
+                  Some(Token::TernIf)      => parse_tree.push(LexClass::Binop(Token::TernIf)),
+                  Some(Token::TernNot)     => parse_tree.push(LexClass::Binop(Token::TernNot)), 
+                  Some(Token::Equal)       => parse_tree.push(LexClass::Asnop(Token::Equal)), 
+                  Some(Token::PlusEq)      => parse_tree.push(LexClass::Asnop(Token::PlusEq)),
+                  Some(Token::MinusEq)     => parse_tree.push(LexClass::Asnop(Token::MinusEq)),
+                  Some(Token::MultEq)      => parse_tree.push(LexClass::Asnop(Token::MultEq)),
+                  Some(Token::DivEq)       => parse_tree.push(LexClass::Asnop(Token::DivEq)),
+                  Some(Token::ModEq)       => parse_tree.push(LexClass::Asnop(Token::ModEq)),
+                  Some(Token::LShiftEq)    => parse_tree.push(LexClass::Asnop(Token::LShiftEq)),
+                  Some(Token::RShiftEq)    => parse_tree.push(LexClass::Asnop(Token::RShiftEq)),
+                  Some(Token::AndEq)       => parse_tree.push(LexClass::Asnop(Token::AndEq)),
+                  Some(Token::XorEq)       => parse_tree.push(LexClass::Asnop(Token::XorEq)),
+                  Some(Token::OrEq)        => parse_tree.push(LexClass::Asnop(Token::OrEq)),
+                  Some(Token::PostMinusEq) => parse_tree.push(LexClass::Postop(Token::PostMinusEq)), 
+                  Some(Token::PostPlusEq)  => parse_tree.push(LexClass::Postop(Token::PostPlusEq)),
                   _ => break,
             }
       }
@@ -77,7 +135,7 @@ fn parse_id(t: Token, tokens: &mut Peekable<Iter<'_, Token>>) -> LexClass {
 // <hexnum> ::= 0[xX][0-9a-fA-F]+
 fn parse_num(t: Token, tokens: &mut Peekable<Iter<'_, Token>>) -> LexClass {
       let mut parse_hex = |tokens: &mut Peekable<Iter<'_, Token>>| -> LexClass {
-            let mut ret: Vec<Token> = Vec::new();
+            let mut ret: Vec<Token> = vec![t];
             loop {
                   match tokens.peek() {
                         Some(Token::Num(_))
@@ -100,7 +158,7 @@ fn parse_num(t: Token, tokens: &mut Peekable<Iter<'_, Token>>) -> LexClass {
                   }
             }
 
-            LexClass::HexNum(t, ret)
+            LexClass::HexNum(ret)
       };
 
       let lex_class = match t {
@@ -120,7 +178,6 @@ fn parse_num(t: Token, tokens: &mut Peekable<Iter<'_, Token>>) -> LexClass {
       LexClass::Num(Box::new(lex_class))
 }
 
-
 #[cfg(test)]
 mod test {
       use lexer::lexer::*;
@@ -134,7 +191,7 @@ mod test {
             tokens.push_back(Token::Num(0));
             tokens.push_back(Token::Num(9));
 
-            let parse_tree = parse(&mut tokens);
+            let parse_tree = parse_tokens(&mut tokens);
             let expected_parse_tree = vec![
                   LexClass::Id(
                         Token::Undefined(Some('a')),
@@ -151,7 +208,7 @@ mod test {
             let mut src_file = String::from("./src/parser/tests/ids.c0");
             let mut parser = Parser::new(&mut src_file);
             let mut tokens = parser.lexer().tokens();
-            let mut parse_tree = parse(&mut tokens);
+            let mut parse_tree = parse_tokens(&mut tokens);
             let expected_parse_tree = vec![
                   LexClass::Id(
                         Token::Undefined(Some('A')),
@@ -170,13 +227,13 @@ mod test {
             let mut parser = Parser::new(&mut src_file); 
             let mut tokens = parser.lexer().tokens();
             println!("{:?}", tokens);
-            let mut parse_tree = parse(&mut tokens);
+            let mut parse_tree = parse_tokens(&mut tokens);
             let expected_parse_tree = vec![
                   LexClass::Num(
                         Box::new(
                               LexClass::HexNum(
-                                    Token::Num(0),
                                     vec![
+                                          Token::Num(0), 
                                           Token::Undefined(Some('x')),
                                           Token::Num(19), 
                                           Token::Undefined(Some('a')), 

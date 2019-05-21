@@ -11,7 +11,8 @@ enum Collection<T> {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Token {
       // Character and operators
-      Undefined(Option<char>), 
+      Undefined(Option<char>),
+      Comma, 
       LCurly,
       RCurly,
       Equal,
@@ -34,8 +35,10 @@ pub enum Token {
       DivEq,
       Plus,
       PlusEq, 
+      PostPlusEq,
       Minus,
       MinusEq,
+      PostMinusEq,
       Gt, 
       Lt,
       Gte,
@@ -57,7 +60,10 @@ pub enum Token {
       BooleanAnd, 
       BooleanOr, 
       Num(u32),
-
+      FieldSelect, 
+      FieldDeref,
+      TernIf,
+      TernNot,
       // Types
       Int, 
       Bool, 
@@ -82,7 +88,6 @@ pub enum Token {
       Continue, 
       Semicolon, 
       Use,
-
 }
 
 pub fn open_file(path:&mut String) -> BufReader<File>{
@@ -150,6 +155,14 @@ fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
                               '>' => tokens.push_back(ops(Token::Gt   ,    Chars)),
                               '^' => tokens.push_back(ops(Token::Xor  ,    Chars)), 
                               '|' => tokens.push_back(ops(Token::Or   ,    Chars)), 
+                              '[' => tokens.push_back(Token::LBracket), 
+                              ']' => tokens.push_back(Token::RBracket),
+                              '{' => tokens.push_back(Token::LCurly), 
+                              '}' => tokens.push_back(Token::RCurly),
+                              ',' => tokens.push_back(Token::Comma),
+                              '.' => tokens.push_back(Token::FieldSelect),
+                              '?' => tokens.push_back(Token::TernIf), 
+                              ':' => tokens.push_back(Token::TernNot),
                               '0'|'1'|'2'|
                               '3'|'4'|'5'|
                               '6'|'7'|'8'|
@@ -238,13 +251,16 @@ fn ops(head: Token, chars: &mut VecDeque<char>) -> Token {
             }
             Token::Plus => {
                   match tail {
-                        '+' | '=' => Token::PlusEq, 
-                        _         => re_insert(tail, tail2, chars, head),
+                        '+' => Token::PostPlusEq, 
+                        '=' => Token::PlusEq,
+                        _   => re_insert(tail, tail2, chars, head),
                   }
             }
             Token::Minus => {
                   match tail {
-                        '-' | '=' => Token::MinusEq,
+                        '-' => Token::PostMinusEq,
+                        '=' => Token::PlusEq,
+                        '>' => Token::FieldDeref,
                         _         => re_insert(tail, tail2, chars, head)
                   }
             }
