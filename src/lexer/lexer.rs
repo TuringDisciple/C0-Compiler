@@ -259,7 +259,7 @@ fn ops(head: Token, chars: &mut VecDeque<char>) -> Token {
             Token::Minus => {
                   match tail {
                         '-' => Token::PostMinusEq,
-                        '=' => Token::PlusEq,
+                        '=' => Token::MinusEq,
                         '>' => Token::FieldDeref,
                         _         => re_insert(tail, tail2, chars, head)
                   }
@@ -520,8 +520,8 @@ mod test {
             assert_eq!(Token::BitNotEq,   lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
             assert_eq!(Token::AndEq,      lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
             assert_eq!(Token::XorEq,      lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::PlusEq,     lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::MinusEq,    lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::PostPlusEq, lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::PostMinusEq,lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
             assert_eq!(Token::BooleanAnd, lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
             assert_eq!(Token::BooleanOr,  lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
             assert_eq!(Token::BooleanNot, lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
