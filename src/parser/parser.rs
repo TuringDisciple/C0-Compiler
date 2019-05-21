@@ -118,7 +118,7 @@ impl Parser {
 // <id> ::= [A-Za-z_][A-Za-z0-9_]*
 fn parse_id(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
       let parse_id_end = |tokens: &mut Peekable<Iter<'_, Token>>| -> Vec<Token> {
-            let ret: Vec<Token>;
+            let mut ret: Vec<Token> = Vec::new();
             loop {
                   match tokens.peek() {
                         Some(Token::Undefined(Some(_)))
@@ -162,7 +162,6 @@ fn parse_num(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
                         | Some(Token::Undefined(Some('D')))
                         | Some(Token::Undefined(Some('E'))) 
                         | Some(Token::Undefined(Some('F')))
-
                               => ret.push(*tokens.next().unwrap()),
                         _     => break,
                   }
