@@ -129,7 +129,7 @@ impl Lexer {
 fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
       let mut tokens: VecDeque<Token> = VecDeque::new();
       loop {
-            // println!("{:?}", Chars);
+            println!("{:?}", Chars);
             match Chars.pop_front() {
 
                   Some(c) => {
@@ -160,9 +160,13 @@ fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
                               'e' | 'r' | 'w' |
                               'f' | '_' | 't' |
                               '#' => tokens.push_back(keyword(c, Chars)),
-                              
+                               
                               ' ' => continue,
-                              _   => tokens.push_back(Token::Undefined(Some(c))),
+                              _   => {
+                                    // println!("{:?}", c);
+                                    tokens.push_back(Token::Undefined(Some(c)));
+                              }
+
                         }
                   }
                   _ => break,
@@ -306,10 +310,14 @@ fn numeric(head: char, chars: &mut VecDeque<char>) -> Token {
                                           sum = 10 * sum + c.to_digit(10).unwrap_or(0);
                                     };
                               },
-                              _        => return Token::Num(sum), 
+                              _        => {
+                                    chars.push_front(c);
+                                    return Token::Num(sum);
+                              }
                         }
                   },
-                  _   => return Token::Num(sum),
+                  _   =>
+                        return Token::Num(sum),
             }
       }
 }
