@@ -175,11 +175,7 @@ fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
                               '#' => tokens.push_back(keyword(c, Chars)),
                                
                               ' ' => continue,
-                              _   => {
-                                    // println!("{:?}", c);
-                                    tokens.push_back(Token::Undefined(Some(c)));
-                              }
-
+                              _   => tokens.push_back(Token::Undefined(Some(c))),
                         }
                   }
                   _ => break,
@@ -315,8 +311,7 @@ fn ops(head: Token, chars: &mut VecDeque<char>) -> Token {
 }
 
 fn numeric(head: char, chars: &mut VecDeque<char>) -> Token {
-      let mut sum: u32 =0;
-      sum = head.to_digit(10).unwrap_or(0);
+      let mut sum: u32 = head.to_digit(10).unwrap_or(0);
       loop {
             match chars.pop_front() {
                   Some(c) => {
