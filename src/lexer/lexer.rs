@@ -2,12 +2,6 @@ use std::fs::File;
 use std::io::{ BufRead, BufReader };
 use std::collections::{VecDeque, HashMap};
 
-#[derive(Copy, Clone, Debug, PartialEq)]
-enum Collection<T> {
-      Array(T), 
-      Pointer(T),
-}
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Token {
       // Character and operators
@@ -64,11 +58,12 @@ pub enum Token {
       FieldDeref,
       TernIf,
       TernNot,
+      QuoteMark,
       // Types
       Int, 
       Bool, 
       Char,
-      String, 
+      String,
       Void,
       Collection,
       Struct,
@@ -163,6 +158,7 @@ fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
                               '.' => tokens.push_back(Token::FieldSelect),
                               '?' => tokens.push_back(Token::TernIf), 
                               ':' => tokens.push_back(Token::TernNot),
+                              '"' => tokens.push_back(Token::QuoteMark),
                               '0'|'1'|'2'|
                               '3'|'4'|'5'|
                               '6'|'7'|'8'|
@@ -174,7 +170,7 @@ fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
                               'f' | '_' | 't' |
                               '#' => tokens.push_back(keyword(c, Chars)),
                                
-                              ' ' => continue,
+                              // ' ' => continue,
                               _   => tokens.push_back(Token::Undefined(Some(c))),
                         }
                   }
@@ -363,7 +359,7 @@ fn match_keyword(patterns: &HashMap<Token, Vec<char>>, chars: &mut VecDeque<char
             match pattern_check(p.to_vec(), chars) {
                   Some(_) => {
                         chars.drain(0..p.len());
-                        return Some(*t);
+                        return Some(t.clone());
                   }
                   None    => (),
             }
@@ -460,104 +456,118 @@ fn keyword(head: char, chars: &mut VecDeque<char>) -> Token {
       }
 }
 
-
 #[cfg(test)]
 mod test {
       use lexer::lexer::*;
+
+      fn next_non_space(tokens:&mut VecDeque<Token>) -> Option<Token> {
+            loop {
+                  match tokens.pop_front() {
+                        Some(Token::Undefined(Some(' '))) => continue, 
+                        Some(t) => return Some(t), 
+                        None    => return None,
+                  }
+            }
+      }
       #[test]
       pub fn lexing_simple_expressions() {
             let mut src_file = String::from("./src/lexer/tests/simple_expressions.c0");
             let mut lexer = Lexer::new(&mut src_file);
-            assert_eq!(Token::Plus,   lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Minus,  lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Mult,   lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Lt,     lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Gt,     lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Or,     lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Xor,    lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::BitNot, lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Div,    lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Equal,  lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Plus,   next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Minus,  next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Mult,   next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Lt,     next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Gt,     next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Or,     next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Xor,    next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::BitNot, next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Div,    next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Equal,  next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
       }
 
       #[test]
       pub fn lexing_expressions() {
             let mut src_file = String::from("./src/lexer/tests/expressions.c0");
             let mut lexer = Lexer::new(&mut src_file);
-            assert_eq!(Token::Mult,       lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Minus,      lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Plus,       lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Div,        lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Equal,      lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Equality,   lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Lt,         lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Lte,        lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Gte,        lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Gt,         lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::NotEq,      lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Mod,        lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::LShift,     lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::RShift,     lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::And,        lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Xor,        lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Or,         lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::BitNot,     lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::LParen,     lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::RParen,     lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::PlusEq,     lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::MinusEq,    lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::DivEq,      lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::MultEq,     lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::OrEq,       lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::LShiftEq,   lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::RShiftEq,   lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::ModEq,      lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::BitNotEq,   lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::AndEq,      lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::XorEq,      lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::PostPlusEq, lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::PostMinusEq,lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::BooleanAnd, lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::BooleanOr,  lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::BooleanNot, lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Mult,       next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Minus,      next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Plus,       next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Div,        next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Equal,      next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Equality,   next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Lt,         next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Lte,        next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Gte,        next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Gt,         next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::NotEq,      next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Mod,        next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::LShift,     next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::RShift,     next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::And,        next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Xor,        next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Or,         next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::BitNot,     next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::LParen,     next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::RParen,     next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::PlusEq,     next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::MinusEq,    next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::DivEq,      next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::MultEq,     next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::OrEq,       next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::LShiftEq,   next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::RShiftEq,   next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::ModEq,      next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::BitNotEq,   next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::AndEq,      next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::XorEq,      next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::PostPlusEq, next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::PostMinusEq,next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::BooleanAnd, next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::BooleanOr,  next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::BooleanNot, next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
       }
 
       #[test]
       pub fn lexing_numerics() {
             let mut src_file = String::from("./src/lexer/tests/numerics.c0");
             let mut lexer = Lexer::new(&mut src_file);
-            assert_eq!(Token::Num(1),         lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Num(12),        lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));      
-            assert_eq!(Token::Num(123),       lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Num(1234),      lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Num(12345),     lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Num(123456),    lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Num(1234567),   lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Num(1),         next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Num(12),        next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));      
+            assert_eq!(Token::Num(123),       next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Num(1234),      next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Num(12345),     next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Num(123456),    next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Num(1234567),   next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
       }
 
       #[test]
       pub fn lexing_types() {
             let mut src_file = String::from("./src/lexer/tests/types.c0");
             let mut lexer = Lexer::new(&mut src_file);
-            assert_eq!(Token::Assert,     lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Alloc,      lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Alloc,      lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::AllocArray, lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Bool,       lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Break,      lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Char,       lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Continue,   lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Error,      lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::For,        lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::If,         lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Int,        lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::String,     lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Struct,     lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Typedef,    lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Return,     lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::While,      lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Void,       lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::Use,        lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
-            assert_eq!(Token::SemiColon,  lexer.tokens.pop_front().unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Assert,     next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Alloc,      next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Alloc,      next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::AllocArray, next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Bool,       next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Break,      next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Char,       next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Continue,   next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Error,      next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::For,        next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::If,         next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Int,        next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::String,     next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Struct,     next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Typedef,    next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Return,     next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::While,      next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Void,       next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::Use,        next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+            assert_eq!(Token::SemiColon,  next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+      }
+
+      #[test]
+      pub fn lexing_string() {
+
       }
 }

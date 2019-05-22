@@ -57,6 +57,7 @@ fn parse_id(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
             let mut ret: Vec<Token> = Vec::new();
             loop {
                   match tokens.peek() {
+                        Some(Token::Undefined(Some(' '))) => break, 
                         Some(Token::Undefined(Some(_)))
                         | Some(Token::Num(_)) => ret.push(*tokens.next().unwrap()), 
                         _ => break, 
@@ -129,7 +130,7 @@ fn parse_strlit(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
             let mut ret = Vec::new();
             loop {
                   match tokens.peek() {
-                        Some(Token::Undefined(Some('"')))
+                        Some(Token::QuoteMark)
                               => {
                               tokens.next();
                               break
@@ -144,7 +145,7 @@ fn parse_strlit(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
       };
 
       match tokens.peek() {
-            Some(Token::Undefined(Some('"'))) => {
+            Some(Token::QuoteMark) => {
                   tokens.next();
                   Some(LexClass::StrLit(parse_to_end(tokens)))
             },
@@ -300,6 +301,33 @@ mod test {
                               )
                         ))
                   );
+
+            assert_eq!(parse_output, expected_parse);
+      }
+
+      #[test]
+      fn test_parsing_strlit() { 
+            let mut src_file = String::from("./src/parser/tests/string.c0");
+            let parser = Parser::new(&mut src_file);
+            let mut tokens = parser.lexer().tokens();
+            let mut parse_output = parse_strlit(&mut tokens.iter().peekable());
+            let expected_parse = Some(
+                  LexClass::StrLit(
+                        vec![
+                              Token::Undefined(Some('H')), 
+                              Token::Undefined(Some('e')),
+                              Token::Undefined(Some('l')),
+                              Token::Undefined(Some('l')),
+                              Token::Undefined(Some('o')), 
+                              Token::Undefined(Some(' ')), 
+                              Token::Undefined(Some('w')), 
+                              Token::Undefined(Some('o')),
+                              Token::Undefined(Some('r')),
+                              Token::Undefined(Some('l')),
+                              Token::Undefined(Some('d')), 
+                        ]
+                  )
+            );
 
             assert_eq!(parse_output, expected_parse);
       }
