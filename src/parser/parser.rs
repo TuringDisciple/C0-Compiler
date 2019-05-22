@@ -172,7 +172,7 @@ fn parse_liblit(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
                   match tokens.next() {
                         Some(Token::Gt) => break,
                         Some(t) 
-                              => ret.push(*tokens.next().unwrap()), 
+                              => ret.push(*t), 
                         _     => break,
                   }
             }
@@ -341,6 +341,25 @@ mod test {
             let mut parse_output = parse_chrlit(&mut tokens.iter().peekable());
             let expected_parse = Some(
                   LexClass::ChrLit(Token::Undefined(Some('a'))),
+            );
+
+            assert_eq!(parse_output, expected_parse);
+      }
+      
+      #[test]
+      fn test_parsing_liblit() {
+            let mut src_file = String::from("./src/parser/tests/lib.c0");
+            let parser = Parser::new(&mut src_file);
+            let mut tokens = parser.lexer().tokens();
+            let mut parse_output = parse_liblit(&mut tokens.iter().peekable()); 
+            let expected_parse = Some(
+                  LexClass::LibLit(
+                        vec![
+                              Token::Undefined(Some('s')), 
+                              Token::Undefined(Some('t')), 
+                              Token::Undefined(Some('d')), 
+                        ]
+                  )
             );
 
             assert_eq!(parse_output, expected_parse);
