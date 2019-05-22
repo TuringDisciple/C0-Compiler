@@ -80,7 +80,7 @@ fn parse_id(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
 // <decnum> ::= 0 | [1-9][0-9]*
 // <hexnum> ::= 0[xX][0-9a-fA-F]+
 fn parse_num(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
-      let mut parse_hex = |tokens: &mut Peekable<Iter<'_, Token>>| -> LexClass {
+      let parse_hex = |tokens: &mut Peekable<Iter<'_, Token>>| -> LexClass {
             let mut ret: Vec<Token> = Vec::new();
             loop {
                   match tokens.peek() {
@@ -129,14 +129,11 @@ fn parse_strlit(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
       let parse_to_end = |tokens: &mut Peekable<Iter<'_, Token>>| -> Vec<Token> {
             let mut ret = Vec::new();
             loop {
-                  match tokens.peek() {
-                        Some(Token::QuoteMark)
-                              => {
-                              tokens.next();
-                              break
-                        }, 
-                        Some(Token::Undefined(Some(_))) 
-                              => ret.push(*tokens.next().unwrap()),
+                  match tokens.next() {
+                        Some(Token::DQuoteMark)
+                              => break, 
+                        Some(t) 
+                              => ret.push(*t),
                         _     => break,
                   }
             }
@@ -145,7 +142,7 @@ fn parse_strlit(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
       };
 
       match tokens.peek() {
-            Some(Token::QuoteMark) => {
+            Some(Token::DQuoteMark) => {
                   tokens.next();
                   Some(LexClass::StrLit(parse_to_end(tokens)))
             },
@@ -154,23 +151,27 @@ fn parse_strlit(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
 }
 
 fn parse_chrlit(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
+      let ret: Option<LexClass>;
       match tokens.peek() {
-            Some(Token::Undefined(Some(_))) 
-                  => Some(LexClass::ChrLit(*tokens.next().unwrap())), 
-            _     => None,
+            Some(Token::QuoteMark) 
+                  => {
+                        tokens.next();
+                        ret = Some(LexClass::ChrLit(*tokens.next().unwrap()));
+                        assert_eq!(Token::QuoteMark, *tokens.next().unwrap());
+                  } 
+            _     => {ret = None;},
       }
+
+      ret
 }
 
 fn parse_liblit(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
       let parse_to_end = |tokens: &mut Peekable<Iter<'_, Token>>| -> Vec<Token> {
             let mut ret = Vec::new(); 
             loop {
-                  match tokens.peek() {
-                        Some(Token::Gt) => {
-                              tokens.next();
-                              break
-                        }
-                        Some(Token::Undefined(Some(_))) 
+                  match tokens.next() {
+                        Some(Token::Gt) => break,
+                        Some(t) 
                               => ret.push(*tokens.next().unwrap()), 
                         _     => break,
                   }
@@ -327,6 +328,19 @@ mod test {
                               Token::Undefined(Some('d')), 
                         ]
                   )
+            );
+
+            assert_eq!(parse_output, expected_parse);
+      }
+
+      #[test]
+      fn test_parsing_chrlit() {
+            let mut src_file = String::from("./src/parser/tests/char.c0");
+            let parser = Parser::new(&mut src_file);
+            let mut tokens = parser.lexer().tokens();
+            let mut parse_output = parse_chrlit(&mut tokens.iter().peekable());
+            let expected_parse = Some(
+                  LexClass::ChrLit(Token::Undefined(Some('a'))),
             );
 
             assert_eq!(parse_output, expected_parse);

@@ -59,6 +59,7 @@ pub enum Token {
       TernIf,
       TernNot,
       QuoteMark,
+      DQuoteMark,
       // Types
       Int, 
       Bool, 
@@ -158,7 +159,8 @@ fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
                               '.' => tokens.push_back(Token::FieldSelect),
                               '?' => tokens.push_back(Token::TernIf), 
                               ':' => tokens.push_back(Token::TernNot),
-                              '"' => tokens.push_back(Token::QuoteMark),
+                              '"' => tokens.push_back(Token::DQuoteMark),
+                              '\''=> tokens.push_back(Token::QuoteMark),
                               '0'|'1'|'2'|
                               '3'|'4'|'5'|
                               '6'|'7'|'8'|
