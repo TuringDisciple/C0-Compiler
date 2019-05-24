@@ -42,13 +42,27 @@ impl Alternative for Option<LexClass> {
             None
       }
 
-      fn alt(op1: Option<LexClass>, op2: Option<LexClass>) -> Option<LexClass> {
-            let pair: Pair<Option<LexClass>> = Pair{ x: op1, y: op2 };
+      fn alt(x: Option<LexClass>, y: Option<LexClass>) -> Option<LexClass> {
+            let pair: Pair<Option<LexClass>> = Pair{ x, y };
             match pair{
 
                   Pair{ x: None, y: None } => None, 
                   _ => None,
 
+            }
+      }
+}
+
+impl Alternative for LexClass {
+      fn empty() -> LexClass {
+            LexClass::Empty
+      }
+
+      fn alt(x: LexClass, y: LexClass) -> LexClass {
+            let pair: Pair<LexClass> = Pair{ x, y };
+            match pair {
+                  
+                  _ => LexClass::Empty
             }
       }
 }
