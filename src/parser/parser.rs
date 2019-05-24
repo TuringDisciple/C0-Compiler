@@ -2,6 +2,7 @@ use lexer::lexer::*;
 use std::boxed::Box;
 use std::collections::vec_deque::Iter;
 use std::iter::Peekable;
+use either::Either;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum LexClass {
@@ -23,9 +24,14 @@ pub enum LexClass {
       Binop(Token             ), 
       Asnop(Token             ), 
       Postop(Token            ),
-      Tp(),
+      Tp(Vec<Either<Box<LexClass>, Token>>),
 }
 
+
+pub trait Alternative {
+      fn empty() -> Self;
+      fn alt(Self, Self) -> Self;
+}
 #[derive(Clone)]
 pub struct Parser {
       lexer: Lexer,
@@ -264,14 +270,29 @@ fn parse_postop(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
       }
 }
 
+
+// TODO: Recursing on types
 fn parse_tp(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
 
+      let look_ahead = |
+            tokens: &mut Peekable<Iter<'_, Token>>, 
+            prev: Option<LexClass>| -> Option<LexClass> {
+            None
+      };
       match tokens.peek() {
             Some(Token::Int) 
             | Some(Token::Bool)
             | Some(Token::String)
             | Some(Token::Char)
-            | Some(Token::Void) => Some(LexClass::Tp()),  
+            | Some(Token::Void) => {
+                  let t = *tokens.next().unwrap();
+
+                  let p = Some( LexClass::Tp(
+                        vec![Either::Right(*tokens.next().unwrap())]));
+                  look_ahead(tokens, p)
+            }
+            
+            Some(Token::Struct) => Some()
             _ => None,
 
       }
