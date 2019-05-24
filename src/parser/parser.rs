@@ -27,11 +27,32 @@ pub enum LexClass {
       Tp(Vec<Either<Box<LexClass>, Token>>),
 }
 
+struct Pair<T> {
+      x: T,
+      y: T,
+}
 
 pub trait Alternative {
       fn empty() -> Self;
       fn alt(Self, Self) -> Self;
 }
+
+impl Alternative for Option<LexClass> {
+      fn empty() -> Option<LexClass> {
+            None
+      }
+
+      fn alt(op1: Option<LexClass>, op2: Option<LexClass>) -> Option<LexClass> {
+            let pair: Pair<Option<LexClass>> = Pair{ x: op1, y: op2 };
+            match pair{
+
+                  Pair{ x: None, y: None } => None, 
+                  _ => None,
+
+            }
+      }
+}
+
 #[derive(Clone)]
 pub struct Parser {
       lexer: Lexer,
@@ -292,7 +313,7 @@ fn parse_tp(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
                   look_ahead(tokens, p)
             }
             
-            Some(Token::Struct) => Some()
+            Some(Token::Struct) => None, 
             _ => None,
 
       }
