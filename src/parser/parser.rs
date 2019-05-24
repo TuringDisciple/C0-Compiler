@@ -23,6 +23,7 @@ pub enum LexClass {
       Binop(Token             ), 
       Asnop(Token             ), 
       Postop(Token            ),
+      Tp(),
 }
 
 #[derive(Clone)]
@@ -260,6 +261,19 @@ fn parse_postop(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
             Some(Token::PostMinusEq)
             | Some(Token::PostPlusEq)  => Some(LexClass::Postop(*tokens.next().unwrap())), 
             _ => None
+      }
+}
+
+fn parse_tp(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
+
+      match tokens.peek() {
+            Some(Token::Int) 
+            | Some(Token::Bool)
+            | Some(Token::String)
+            | Some(Token::Char)
+            | Some(Token::Void) => Some(LexClass::Tp()),  
+            _ => None,
+
       }
 }
 
