@@ -45,7 +45,15 @@ impl Alternative for Option<LexClass> {
       fn alt(x: Option<LexClass>, y: Option<LexClass>) -> Option<LexClass> {
             let pair: Pair<Option<LexClass>> = Pair{ x, y };
             match pair{
-
+                  Pair{
+                         x: Some(LexClass::Tp(v1)), 
+                         y: Some(LexClass::Tp(v2)) 
+                  } => {
+                        let mut buff = Vec::new();
+                        buff.extend(v1);
+                        buff.extend(v2);
+                        Some(LexClass::Tp(buff))
+                  }
                   Pair{ x: None, y: None } => None, 
                   _ => None,
 
@@ -61,7 +69,7 @@ impl Alternative for LexClass {
       fn alt(x: LexClass, y: LexClass) -> LexClass {
             let pair: Pair<LexClass> = Pair{ x, y };
             match pair {
-                  
+
                   _ => LexClass::Empty
             }
       }
