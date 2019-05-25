@@ -4,6 +4,8 @@ use std::collections::vec_deque::Iter;
 use std::iter::Peekable;
 use either::Either;
 
+type OptionLexClass = Option<LexClass>;
+
 #[derive(Clone, PartialEq, Debug)]
 pub enum LexClass {
       Empty,
@@ -37,13 +39,13 @@ pub trait Alternative {
       fn add(Self, Self) -> Self;
 }
 
-impl Alternative for Option<LexClass> {
-      fn empty() -> Option<LexClass> {
+impl Alternative for OptionLexClass{
+      fn empty() -> OptionLexClass{
             None
       }
 
-      fn add(x: Option<LexClass>, y: Option<LexClass>) -> Option<LexClass> {
-            let pair: Pair<Option<LexClass>> = Pair{ x, y };
+      fn add(x: OptionLexClass, y: OptionLexClass) -> OptionLexClass{
+            let pair: Pair<OptionLexClass> = Pair{ x, y };
             match pair{
                   Pair{ x: Some(lc1), y: Some(lc2) } => Some(LexClass::add(lc1, lc2)),
                   Pair{ x: None,      y: Some(lc)  } => Some(lc), 
@@ -120,7 +122,7 @@ fn peek_non_whitespace(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<Token> 
 }
 
 // <id> ::= [A-Za-z_][A-Za-z0-9_]*
-fn parse_id(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
+fn parse_id(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
       let parse_id_end = |tokens: &mut Peekable<Iter<'_, Token>>| -> Vec<Token> {
             let mut ret: Vec<Token> = Vec::new();
             loop {
@@ -147,7 +149,7 @@ fn parse_id(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
 // <num> ::= <decnum> | <hexnum>
 // <decnum> ::= 0 | [1-9][0-9]*
 // <hexnum> ::= 0[xX][0-9a-fA-F]+
-fn parse_num(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
+fn parse_num(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
       let parse_hex = |tokens: &mut Peekable<Iter<'_, Token>>| -> LexClass {
             let mut ret: Vec<Token> = Vec::new();
             loop {
@@ -193,7 +195,7 @@ fn parse_num(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
 
 }
 
-fn parse_strlit(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
+fn parse_strlit(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
       let parse_to_end = |tokens: &mut Peekable<Iter<'_, Token>>| -> Vec<Token> {
             let mut ret = Vec::new();
             loop {
@@ -218,8 +220,8 @@ fn parse_strlit(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
       }
 }
 
-fn parse_chrlit(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
-      let ret: Option<LexClass>;
+fn parse_chrlit(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
+      let ret: OptionLexClass;
       match tokens.peek() {
             Some(Token::QuoteMark) 
                   => {
@@ -233,7 +235,7 @@ fn parse_chrlit(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
       ret
 }
 
-fn parse_liblit(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
+fn parse_liblit(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
       let parse_to_end = |tokens: &mut Peekable<Iter<'_, Token>>| -> Vec<Token> {
             let mut ret = Vec::new(); 
             loop {
@@ -256,7 +258,7 @@ fn parse_liblit(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
       }
 }
 
-fn parse_sep(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
+fn parse_sep(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
       match tokens.peek() {
             Some(Token::LParen)    
             | Some(Token::RParen)     
@@ -269,7 +271,7 @@ fn parse_sep(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
       }
 }
 
-fn parse_unop(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
+fn parse_unop(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
       match tokens.peek() {
             Some(Token::Not)      
             | Some(Token::BitNot) 
@@ -279,7 +281,7 @@ fn parse_unop(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
       }
 }
 
-fn parse_binop(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
+fn parse_binop(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
       match tokens.peek() {
             Some(Token::FieldSelect) 
             | Some(Token::FieldDeref) 
@@ -306,7 +308,7 @@ fn parse_binop(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
       }
 }
 
-fn parse_asnop(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
+fn parse_asnop(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
       match tokens.peek() {
             Some(Token::Equal)   
             | Some(Token::PlusEq)    
@@ -323,7 +325,7 @@ fn parse_asnop(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
       }
 }
 
-fn parse_postop(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
+fn parse_postop(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
       match tokens.peek() {
             Some(Token::PostMinusEq)
             | Some(Token::PostPlusEq)  => Some(LexClass::Postop(*tokens.next().unwrap())), 
@@ -333,24 +335,24 @@ fn parse_postop(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
 
 
 // TODO: Recursing on types
-fn parse_tp(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
+fn parse_tp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
 
-      let look_ahead = | tokens: &mut Peekable<Iter<'_, Token>>, prev: LexClass| -> Option<LexClass> {
+      let look_ahead = | tokens: &mut Peekable<Iter<'_, Token>>, prev: OptionLexClass| -> OptionLexClass{
             match peek_non_whitespace(tokens) {
                   Some(Token::Mult) => {
                         tokens.next();
-                        let parse = LexClass::Tp(vec![Either::Right(Token::Mult)]);
-                        return Some(LexClass::add(prev, parse))
+                        let parse = Some(LexClass::Tp(vec![Either::Right(Token::Mult)]));
+                        return OptionLexClass::add(prev, parse)
                   },
                   Some(Token::LBracket) => {
                         let bracket1 = *tokens.next().unwrap();
                         let bracket2 = *tokens.next().unwrap();
                         assert_eq!(bracket2, Token::RBracket);
-                        let parse = LexClass::Tp(vec![Either::Right(bracket1), Either::Right(bracket2)]);
-                        Some(LexClass::add(prev, parse))
+                        let parse = Some(LexClass::Tp(vec![Either::Right(bracket1), Either::Right(bracket2)]));
+                        OptionLexClass::add(prev, parse)
                   }
 
-                  _ => Some(prev),
+                  _ => prev,
             }
       };
 
@@ -361,7 +363,7 @@ fn parse_tp(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
             | Some(Token::Char)
             | Some(Token::Void) => {
                   let t = *tokens.next().unwrap();
-                  let p = LexClass::Tp( vec![ Either::Right( t ) ] );
+                  let p = Some(LexClass::Tp( vec![ Either::Right( t ) ] ));
                   look_ahead(tokens, p)
             },
             
@@ -370,20 +372,20 @@ fn parse_tp(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
                   let p = LexClass::Tp(vec![ Either::Right( t ) ]);
                   let sid = parse_sid(tokens);
                   match sid {
-                        Some(lc) => Some(LexClass::add(p, lc)),
+                        Some(lc) => OptionLexClass::add(Some(p), Some(lc)),//Some(LexClass::add(p, lc)),
                         None     => None, 
                   }
             }
-            Some(Token::Undefined(Some(_))) => Some(LexClass::Tp(vec![ Either::Left(Box::new(parse_aid(tokens).unwrap())) ])),
+            Some(Token::Undefined(Some(_))) => OptionLexClass::add(Some(LexClass::Tp(vec![])), parse_id(tokens)),
             _ => None,
       }
 }
 
-fn parse_sid(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
+fn parse_sid(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
       parse_id(tokens)
 }
 
-fn parse_aid(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
+fn parse_aid(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
       parse_id(tokens)
 }
 
