@@ -34,7 +34,7 @@ struct Pair<T> {
 
 pub trait Alternative {
       fn empty() -> Self;
-      fn alt(Self, Self) -> Self;
+      fn add(Self, Self) -> Self;
 }
 
 impl Alternative for Option<LexClass> {
@@ -42,19 +42,13 @@ impl Alternative for Option<LexClass> {
             None
       }
 
-      fn alt(x: Option<LexClass>, y: Option<LexClass>) -> Option<LexClass> {
+      fn add(x: Option<LexClass>, y: Option<LexClass>) -> Option<LexClass> {
             let pair: Pair<Option<LexClass>> = Pair{ x, y };
             match pair{
-                  Pair{
-                         x: Some(LexClass::Tp(v1)), 
-                         y: Some(LexClass::Tp(v2)) 
-                  } => {
-                        let mut buff = Vec::new();
-                        buff.extend(v1);
-                        buff.extend(v2);
-                        Some(LexClass::Tp(buff))
-                  }
-                  Pair{ x: None, y: None } => None, 
+                  Pair{ x: Some(lc1), y: Some(lc2) } => Some(LexClass::add(lc1, lc2)),
+                  Pair{ x: None,      y: Some(lc)  } => Some(lc), 
+                  Pair{ x: Some(lc),  y: None      } => Some(lc),
+                  Pair{ x: None,      y: None      } => None, 
                   _ => None,
 
             }
@@ -66,10 +60,23 @@ impl Alternative for LexClass {
             LexClass::Empty
       }
 
-      fn alt(x: LexClass, y: LexClass) -> LexClass {
+      fn add(x: LexClass, y: LexClass) -> LexClass {
             let pair: Pair<LexClass> = Pair{ x, y };
             match pair {
-
+                  Pair{ x: LexClass::Empty, y: LexClass::Empty }     => LexClass::Empty, 
+                  Pair{ x: LexClass::Tp(op1), y: LexClass::Tp(op2) } => {
+                        let mut buff = Vec::new();
+                        buff.extend(op1);
+                        buff.extend(op2);
+                        LexClass::Tp(buff)
+                  },
+                  Pair{ x: LexClass::Tp(op1), y: LexClass::Id(t, ts) } => {
+                        let mut buff = Vec::new();
+                        buff.extend(op1);
+                        let wrapper = vec![Either::Left(Box::new(LexClass::Id(t, ts)))];
+                        buff.extend(wrapper);
+                        LexClass::Tp(buff)
+                  }
                   _ => LexClass::Empty
             }
       }
@@ -101,6 +108,17 @@ impl Parser {
       }
 }
 
+fn peek_non_whitespace(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<Token> {
+      loop {
+            match tokens.peek() {
+                  Some(Token::Undefined(Some(' '))) => (),
+                  Some(t) => return Some(**t), 
+                  None    => return None,
+            }
+            tokens.next();
+      }
+}
+
 // <id> ::= [A-Za-z_][A-Za-z0-9_]*
 fn parse_id(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
       let parse_id_end = |tokens: &mut Peekable<Iter<'_, Token>>| -> Vec<Token> {
@@ -116,7 +134,7 @@ fn parse_id(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
             ret 
       };
 
-      match tokens.peek() {
+      match peek_non_whitespace(tokens){
             Some(Token::Undefined(Some(_))) => {
                   let t = tokens.next().unwrap();
                   let ts = parse_id_end(tokens);
@@ -317,28 +335,56 @@ fn parse_postop(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
 // TODO: Recursing on types
 fn parse_tp(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
 
-      let look_ahead = |
-            tokens: &mut Peekable<Iter<'_, Token>>, 
-            prev: Option<LexClass>| -> Option<LexClass> {
-            None
+      let look_ahead = | tokens: &mut Peekable<Iter<'_, Token>>, prev: LexClass| -> Option<LexClass> {
+            match peek_non_whitespace(tokens) {
+                  Some(Token::Mult) => {
+                        tokens.next();
+                        let parse = LexClass::Tp(vec![Either::Right(Token::Mult)]);
+                        return Some(LexClass::add(prev, parse))
+                  },
+                  Some(Token::LBracket) => {
+                        let bracket1 = *tokens.next().unwrap();
+                        let bracket2 = *tokens.next().unwrap();
+                        assert_eq!(bracket2, Token::RBracket);
+                        let parse = LexClass::Tp(vec![Either::Right(bracket1), Either::Right(bracket2)]);
+                        Some(LexClass::add(prev, parse))
+                  }
+
+                  _ => Some(prev),
+            }
       };
-      match tokens.peek() {
+
+      match peek_non_whitespace(tokens) {
             Some(Token::Int) 
             | Some(Token::Bool)
             | Some(Token::String)
             | Some(Token::Char)
             | Some(Token::Void) => {
                   let t = *tokens.next().unwrap();
-
-                  let p = Some( LexClass::Tp(
-                        vec![Either::Right(*tokens.next().unwrap())]));
+                  let p = LexClass::Tp( vec![ Either::Right( t ) ] );
                   look_ahead(tokens, p)
-            }
+            },
             
-            Some(Token::Struct) => None, 
+            Some(Token::Struct) => {
+                  let t = *tokens.next().unwrap();
+                  let p = LexClass::Tp(vec![ Either::Right( t ) ]);
+                  let sid = parse_sid(tokens);
+                  match sid {
+                        Some(lc) => Some(LexClass::add(p, lc)),
+                        None     => None, 
+                  }
+            }
+            Some(Token::Undefined(Some(_))) => Some(LexClass::Tp(vec![ Either::Left(Box::new(parse_aid(tokens).unwrap())) ])),
             _ => None,
-
       }
+}
+
+fn parse_sid(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
+      parse_id(tokens)
+}
+
+fn parse_aid(tokens: &mut Peekable<Iter<'_, Token>>) -> Option<LexClass> {
+      parse_id(tokens)
 }
 
 #[cfg(test)]
@@ -441,5 +487,25 @@ mod test {
             );
 
             assert_eq!(parse_output, expected_parse);
+      }
+
+      #[test]
+      fn test_parsing_tp() {
+            let mut src_file = String::from("./src/parser/tests/tp.c0");
+            let parser = Parser::new(&mut src_file);
+            let mut tokens = parser.lexer().tokens();
+            let mut tokens_peekable = tokens.iter().peekable();
+            let first_parse = parse_tp(&mut tokens_peekable);
+            let expected_first_parse = Some(LexClass::Tp(vec![ Either::Right(Token::Int), Either::Right(Token::Mult) ]));
+            let second_parse  = parse_tp(&mut tokens_peekable);
+            let expected_second_parse = Some(LexClass::Tp(vec![ Either::Right(Token::Bool), Either::Right(Token::LBracket), Either::Right(Token::RBracket) ]));
+            let third_parse = parse_tp(&mut tokens_peekable);
+            let expected_third_parse = Some(LexClass::Tp(vec![ Either::Right(Token::Struct), Either::Left(Box::new(LexClass::Id(Token::Undefined(Some('s')), vec![])))]));
+            let fourth_parse = parse_tp(&mut tokens_peekable);
+            let expected_fourth_parse = Some(LexClass::Tp(vec![Either::Left(Box::new(LexClass::Id(Token::Undefined(Some('c')), vec![Token::Undefined(Some('_'))])))]));
+            assert_eq!(first_parse,  expected_first_parse);
+            assert_eq!(second_parse, expected_second_parse);
+            assert_eq!(third_parse,  expected_third_parse);
+            assert_eq!(fourth_parse, expected_fourth_parse);
       }
 }
