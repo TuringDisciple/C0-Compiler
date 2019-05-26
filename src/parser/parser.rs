@@ -9,8 +9,8 @@ type OptionLexClass = Option<LexClass>;
 #[derive(Clone, PartialEq, Debug)]
 pub enum LexClass {
       Empty,
-      Id    (Token, Vec<Token>),
-      Num   (Box<LexClass>    ),
+      Id(Vec<Token>           ),
+      Num(Box<LexClass>       ),
       DecNum(Token            ),
       HexNum(Vec<Token>       ), 
       StrLit(Vec<Token>       ),
@@ -27,6 +27,7 @@ pub enum LexClass {
       Asnop(Token             ), 
       Postop(Token            ),
       Tp(Vec<Either<Box<LexClass>, Token>>),
+      Lv(Vec<Either<Box<LexClass>, Token>>),
 }
 
 struct Pair<T> {
@@ -72,13 +73,49 @@ impl Alternative for LexClass {
                         buff.extend(op2);
                         LexClass::Tp(buff)
                   },
-                  Pair{ x: LexClass::Tp(op1), y: LexClass::Id(t, ts) } => {
+                  Pair{ x: LexClass::Tp(op1), y: LexClass::Id(ts) } => {
                         let mut buff = Vec::new();
                         buff.extend(op1);
-                        let wrapper = vec![Either::Left(Box::new(LexClass::Id(t, ts)))];
+                        let wrapper = vec![Either::Left(Box::new(LexClass::Id(ts)))];
                         buff.extend(wrapper);
                         LexClass::Tp(buff)
-                  }
+                  },
+                  Pair{ x: LexClass::Unop(t), y: LexClass::Lv(l) } => {
+                        let mut buff = Vec::new();
+                        buff.extend(vec![Either::Right(t)]);
+                        buff.extend(l);
+                        LexClass::Lv(buff)
+                  }, 
+                  Pair{ x: LexClass::Lv(l), y: LexClass::Unop(t) } => {
+                        let mut buff = Vec::new();
+                        buff.extend(l);
+                        buff.extend(vec![Either::Right(t)]);
+                        LexClass::Lv(buff)
+                  },
+                  Pair{ x: LexClass::Lv(l), y: LexClass::Binop(t) } => {
+                        let mut buff = Vec::new();
+                        buff.extend(l);
+                        buff.extend(vec![Either::Right(t)]);
+                        LexClass::Lv(buff)
+                  },
+                  Pair{ x: LexClass::Sep(t), y: LexClass::Lv(l) } => {
+                        let mut buff = Vec::new();
+                        buff.extend(vec![Either::Right(t)]);
+                        buff.extend(l);
+                        LexClass::Lv(buff)
+                  },
+                  Pair{ x: LexClass::Lv(l), y: LexClass::Sep(t) } => {
+                        let mut buff = Vec::new();
+                        buff.extend(l);
+                        buff.extend(vec![Either::Right(t)]);
+                        LexClass::Lv(buff)
+                  },
+                  Pair{ x: LexClass::Lv(l), y: LexClass::Id(ts) } => {
+                        let mut buff = Vec::new();
+                        buff.extend(l);
+                        buff.extend(vec![Either::Left(Box::new(LexClass::Id(ts)))]);
+                        LexClass::Lv(buff)
+                  },
                   _ => LexClass::Empty
             }
       }
@@ -138,9 +175,10 @@ fn parse_id(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
 
       match peek_non_whitespace(tokens){
             Some(Token::Undefined(Some(_))) => {
-                  let t = tokens.next().unwrap();
-                  let ts = parse_id_end(tokens);
-                  Some(LexClass::Id(*t, ts))
+                  let mut buff = vec![ *tokens.next().unwrap()];
+                  buff.extend(parse_id_end(tokens));
+                  
+                  Some(LexClass::Id(buff))
             }
             _ => None
       }
@@ -259,7 +297,7 @@ fn parse_liblit(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
 }
 
 fn parse_sep(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
-      match tokens.peek() {
+      match peek_non_whitespace(tokens) {
             Some(Token::LParen)    
             | Some(Token::RParen)     
             | Some(Token::LBracket)    
@@ -272,17 +310,20 @@ fn parse_sep(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
 }
 
 fn parse_unop(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
-      match tokens.peek() {
+      match peek_non_whitespace(tokens) {
             Some(Token::Not)      
             | Some(Token::BitNot) 
-            | Some(Token::Minus)       
-            | Some(Token::Mult) => Some(LexClass::Unop(*tokens.next().unwrap())),
+            | Some(Token::Minus) => Some(LexClass::Unop(*tokens.next().unwrap())),
+            Some(Token::Mult) => {
+                  tokens.next();
+                  Some(LexClass::Unop(Token::FieldDeref))
+            },
             _ => None,
       }
 }
 
 fn parse_binop(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
-      match tokens.peek() {
+      match peek_non_whitespace(tokens) {
             Some(Token::FieldSelect) 
             | Some(Token::FieldDeref) 
             | Some(Token::Div)  
@@ -309,7 +350,7 @@ fn parse_binop(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
 }
 
 fn parse_asnop(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
-      match tokens.peek() {
+      match peek_non_whitespace(tokens) {
             Some(Token::Equal)   
             | Some(Token::PlusEq)    
             | Some(Token::MinusEq)   
@@ -325,8 +366,8 @@ fn parse_asnop(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
       }
 }
 
-fn parse_postop(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
-      match tokens.peek() {
+fn parse_postop(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
+      match peek_non_whitespace(tokens) {
             Some(Token::PostMinusEq)
             | Some(Token::PostPlusEq)  => Some(LexClass::Postop(*tokens.next().unwrap())), 
             _ => None
@@ -335,7 +376,7 @@ fn parse_postop(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
 
 
 // TODO: Recursing on types
-fn parse_tp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
+fn parse_tp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
 
       let look_ahead = | tokens: &mut Peekable<Iter<'_, Token>>, prev: OptionLexClass| -> OptionLexClass{
             match peek_non_whitespace(tokens) {
@@ -369,24 +410,63 @@ fn parse_tp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
             
             Some(Token::Struct) => {
                   let t = *tokens.next().unwrap();
-                  let p = LexClass::Tp(vec![ Either::Right( t ) ]);
-                  let sid = parse_sid(tokens);
-                  match sid {
-                        Some(lc) => OptionLexClass::add(Some(p), Some(lc)),//Some(LexClass::add(p, lc)),
-                        None     => None, 
-                  }
+                  let p = Some(LexClass::Tp(vec![ Either::Right( t ) ]));
+                  OptionLexClass::add(p, parse_sid(tokens))
             }
-            Some(Token::Undefined(Some(_))) => OptionLexClass::add(Some(LexClass::Tp(vec![])), parse_id(tokens)),
+            Some(Token::Undefined(Some(_))) => OptionLexClass::add(Some(LexClass::Tp(vec![])), parse_aid(tokens)),
             _ => None,
       }
 }
 
-fn parse_sid(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
+fn parse_sid(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
       parse_id(tokens)
 }
 
-fn parse_aid(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
+fn parse_aid(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
       parse_id(tokens)
+}
+
+fn parse_lv(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
+      let look_ahead = | parse: OptionLexClass, tokens: &mut Peekable<Iter<'_, Token>> | -> OptionLexClass {
+            let mut ret = Some(LexClass::Lv(vec![Either::Left(Box::new(parse.unwrap()))]));
+            match peek_non_whitespace(tokens) {
+                  Some(Token::FieldSelect) 
+                  | Some(Token::FieldDeref)=> {
+                        ret = OptionLexClass::add(ret, parse_binop(tokens));
+                        OptionLexClass::add(ret, parse_fid(tokens))
+                  },
+                  Some(Token::LBracket) => {
+                        ret = OptionLexClass::add(ret, parse_sep(tokens));
+                        ret = OptionLexClass::add(ret, parse_exp(tokens));
+                        OptionLexClass::add(ret, parse_sep(tokens))
+                  }
+                  _ => ret,
+            }
+      };
+
+      match peek_non_whitespace(tokens) {
+            Some(Token::Undefined(Some(_))) =>
+                  look_ahead(parse_vid(tokens), tokens),
+            Some(Token::Mult) =>
+                  OptionLexClass::add(parse_unop(tokens), parse_lv(tokens)),
+            Some(Token::LParen) => {
+                  let buff = OptionLexClass::add(parse_sep(tokens), parse_lv(tokens));
+                  OptionLexClass::add(buff, parse_sep(tokens))
+            },
+            _ => None,
+      }
+}
+
+fn parse_vid(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
+      parse_id(tokens)
+}
+
+fn parse_fid(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
+      parse_id(tokens)
+}
+
+fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
+      None
 }
 
 #[cfg(test)]
@@ -401,8 +481,8 @@ mod test {
             let mut parse_output = parse_id(&mut tokens.iter().peekable());
             let expected_parse = Some(
                   LexClass::Id(
-                        Token::Undefined(Some('A')), 
                         vec![
+                              Token::Undefined(Some('A')),
                               Token::Undefined(Some('a')), 
                               Token::Num(123),
                         ]
@@ -502,12 +582,48 @@ mod test {
             let second_parse  = parse_tp(&mut tokens_peekable);
             let expected_second_parse = Some(LexClass::Tp(vec![ Either::Right(Token::Bool), Either::Right(Token::LBracket), Either::Right(Token::RBracket) ]));
             let third_parse = parse_tp(&mut tokens_peekable);
-            let expected_third_parse = Some(LexClass::Tp(vec![ Either::Right(Token::Struct), Either::Left(Box::new(LexClass::Id(Token::Undefined(Some('s')), vec![])))]));
+            let expected_third_parse = Some(LexClass::Tp(vec![ Either::Right(Token::Struct), Either::Left(Box::new(LexClass::Id(vec![Token::Undefined(Some('s'))])))]));
             let fourth_parse = parse_tp(&mut tokens_peekable);
-            let expected_fourth_parse = Some(LexClass::Tp(vec![Either::Left(Box::new(LexClass::Id(Token::Undefined(Some('c')), vec![Token::Undefined(Some('_'))])))]));
+            let expected_fourth_parse = Some(LexClass::Tp(vec![Either::Left(Box::new(LexClass::Id(vec![Token::Undefined(Some('c')), Token::Undefined(Some('_'))])))]));
             assert_eq!(first_parse,  expected_first_parse);
             assert_eq!(second_parse, expected_second_parse);
             assert_eq!(third_parse,  expected_third_parse);
+            assert_eq!(fourth_parse, expected_fourth_parse);
+      }
+
+      #[test]
+      fn test_parsing_lv() {
+            let mut src_file = String::from("./src/parser/tests/lv.c0");
+            let parser = Parser::new(&mut src_file);
+            let mut tokens = parser.lexer().tokens();
+            let mut tokens_peekable = tokens.iter().peekable();
+            let first_parse = parse_lv(&mut tokens_peekable);
+            let expected_first_parse = Some(LexClass::Lv(vec![
+                  Either::Left(Box::new(LexClass::Id(vec![Token::Undefined(Some('t'))]))),
+                  Either::Right(Token::FieldDeref),
+                  Either::Left(Box::new(LexClass::Id(vec![Token::Undefined(Some('x'))]))),
+                  ]));
+            let second_parse = parse_lv(&mut tokens_peekable);
+            let expected_second_parse = Some(LexClass::Lv(vec![
+                  Either::Left(Box::new(LexClass::Id(vec![Token::Undefined(Some('t'))]))),
+                  Either::Right(Token::FieldSelect),
+                  Either::Left(Box::new(LexClass::Id(vec![Token::Undefined(Some('x'))]))),
+            ]));
+            let third_parse = parse_lv(&mut tokens_peekable);
+            let expected_third_parse = Some(LexClass::Lv(vec![
+                  Either::Right(Token::LParen),
+                  Either::Left(Box::new(LexClass::Id(vec![Token::Undefined(Some('t'))]))),
+                  Either::Right(Token::RParen),
+            ]));
+            let fourth_parse = parse_lv(&mut tokens_peekable);
+            let expected_fourth_parse = Some(LexClass::Lv(vec![
+                  Either::Right(Token::FieldDeref),
+                  Either::Right(Token::FieldDeref),
+                  Either::Left(Box::new(LexClass::Id(vec![Token::Undefined(Some('t'))]))),
+            ]));
+            assert_eq!(first_parse, expected_first_parse);
+            assert_eq!(second_parse, expected_second_parse);
+            assert_eq!(third_parse, expected_third_parse);
             assert_eq!(fourth_parse, expected_fourth_parse);
       }
 }
