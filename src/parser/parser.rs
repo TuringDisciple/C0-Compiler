@@ -31,20 +31,20 @@ pub enum LexClass {
       Tp(VecEither            ),
       Lv(VecEither            ),
       Simple(VecEither        ),
+      Exp(VecEither           ),
 }
 
-pub trait Unwrap<T>{
-      fn unwrap(T) -> VecEither;
+pub trait ToEither {
+      fn to_either(Self) -> VecEither;
 }
 
-impl Unwrap<LexClass> for LexClass{
-      fn unwrap(x: LexClass) -> VecEither {
-            match x {
-                  LexClass::Tp(e)
-                  | LexClass::Lv(e)
-                  | LexClass::Simple(e) => e, 
-                  _ => Vec::new(),
+impl ToEither for VecToken {
+      fn to_either(ts: VecToken) -> VecEither {
+            let mut accum: VecEither = Vec::new();
+            for t in ts {
+                  accum.push(Either::Right(t));
             }
+            accum
       }
 }
 
@@ -83,74 +83,78 @@ impl Alternative for LexClass {
 
       fn add(x: LexClass, y: LexClass) -> LexClass {
             let pair: Pair<LexClass> = Pair{ x, y };
+            let mut buff: VecEither = Vec::new();
             match pair {
                   Pair{ x: LexClass::Empty, y: LexClass::Empty }     => LexClass::Empty, 
                   Pair{ x: LexClass::Tp(op1), y: LexClass::Tp(op2) } => {
-                        let mut buff = Vec::new();
                         buff.extend(op1);
                         buff.extend(op2);
                         LexClass::Tp(buff)
                   },
                   Pair{ x: LexClass::Tp(op1), y: LexClass::Id(ts) } => {
-                        let mut buff = Vec::new();
                         buff.extend(op1);
                         let wrapper = vec![Either::Left(Box::new(LexClass::Id(ts)))];
                         buff.extend(wrapper);
                         LexClass::Tp(buff)
                   },
                   Pair{ x: LexClass::Unop(t), y: LexClass::Lv(l) } => {
-                        let mut buff = Vec::new();
                         buff.extend(vec![Either::Right(t)]);
                         buff.extend(l);
                         LexClass::Lv(buff)
                   }, 
                   Pair{ x: LexClass::Lv(l), y: LexClass::Unop(t) } => {
-                        let mut buff = Vec::new();
                         buff.extend(l);
                         buff.extend(vec![Either::Right(t)]);
                         LexClass::Lv(buff)
                   },
                   Pair{ x: LexClass::Lv(l), y: LexClass::Binop(t) } => {
-                        let mut buff = Vec::new();
                         buff.extend(l);
                         buff.extend(vec![Either::Right(t)]);
                         LexClass::Lv(buff)
                   },
                   Pair{ x: LexClass::Sep(t), y: LexClass::Lv(l) } => {
-                        let mut buff = Vec::new();
                         buff.extend(vec![Either::Right(t)]);
                         buff.extend(l);
                         LexClass::Lv(buff)
                   },
                   Pair{ x: LexClass::Lv(l), y: LexClass::Sep(t) } => {
-                        let mut buff = Vec::new();
                         buff.extend(l);
                         buff.extend(vec![Either::Right(t)]);
                         LexClass::Lv(buff)
                   },
                   Pair{ x: LexClass::Lv(l), y: LexClass::Id(ts) } => {
-                        let mut buff = Vec::new();
                         buff.extend(l);
                         buff.extend(vec![Either::Left(Box::new(LexClass::Id(ts)))]);
                         LexClass::Lv(buff)
                   },
                   Pair{ x: LexClass::Lv(l), y: LexClass::Postop(t) } => {
-                        let mut buff = Vec::new();
                         buff.extend(l);
                         buff.extend(vec![Either::Right(t)]);
                         LexClass::Lv(buff)
                   },
                   Pair{ x: LexClass::Simple(l), y: LexClass::Lv(r)} =>{
-                        let mut buff = Vec::new();
                         buff.extend(l);
                         buff.extend(r);
                         LexClass::Simple(buff)
                   },
                   Pair{x: LexClass::Simple(l), y: LexClass::Tp(r) } => {
-                        let mut buff = Vec::new();
                         buff.extend(l);
                         buff.extend(r);
                         LexClass::Simple(buff)
+                  }
+                  Pair{ x:LexClass::Sep(t), y: LexClass::Exp(l) } => {
+                        buff.extend(vec![Either::Right(t)]);
+                        buff.extend(l);
+                        LexClass::Exp(buff)
+                  },
+                  Pair{ x: LexClass::Exp(l), y: LexClass::Num(b)} => {
+                        buff.extend(l);
+                        match *b{
+                              LexClass::DecNum(t)  => buff.extend(vec![Either::Right(t)]),
+                              LexClass::HexNum(ts) => buff.extend(ToEither::to_either(ts)),
+                              _ => (),
+                        }
+                        LexClass::Exp(buff)
                   }
                   _ => LexClass::Empty
             }
@@ -262,8 +266,8 @@ fn parse_num(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
 
                   }
             },
-            Some(Token::Num(_)) 
-                  => Some(LexClass::Num(Box::new(LexClass::DecNum(*tokens.next().unwrap())))),
+            Some(Token::Num(_))  => 
+                  Some(LexClass::Num(Box::new(LexClass::DecNum(*tokens.next().unwrap())))),
             _     => None,
       }
 
@@ -501,6 +505,27 @@ fn parse_fid(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
 }
 
 fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
+      // TODO: Recursive look ahead
+      let look_ahead = |parsed: OptionLexClass, tokens: &mut Peekable<Iter<'_, Token>>|-> OptionLexClass {
+            None,
+      }
+      let mut parse: OptionLexClass;
+      parse = parse_sep(tokens);
+      if parse != None {
+            parse = OptionLexClass::add(parse, parse_exp(tokens));
+            parse = OptionLexClass::add(parse, parse_sep(tokens));
+            return OptionLexClass::add(
+                  Some(LexClass::Exp(vec![])), 
+                  parse
+            );
+      }
+      parse = parse_num(tokens);
+      if parse != None {
+            return OptionLexClass::add(
+                  Some(LexClass::Exp(vec![])),
+                  parse
+            );
+      }
       None
 }
 
