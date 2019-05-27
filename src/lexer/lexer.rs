@@ -60,6 +60,7 @@ pub enum Token {
       TernNot,
       QuoteMark,
       DQuoteMark,
+      PointerDeref,
       // Types
       Int, 
       Bool, 

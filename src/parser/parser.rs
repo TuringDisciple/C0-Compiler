@@ -5,18 +5,20 @@ use std::iter::Peekable;
 use either::Either;
 
 type OptionLexClass = Option<LexClass>;
+type VecToken = Vec<Token>;
+type VecEither = Vec<Either<Box<LexClass>, Token>>;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum LexClass {
       Empty,
-      Id(Vec<Token>           ),
+      Id(VecToken             ),
       Num(Box<LexClass>       ),
       DecNum(Token            ),
-      HexNum(Vec<Token>       ), 
-      StrLit(Vec<Token>       ),
+      HexNum(VecToken         ), 
+      StrLit(VecToken         ),
       ChrLit(Token            ), 
-      LibLit(Vec<Token>       ), 
-      SChar(Vec<Token>        ), 
+      LibLit(VecToken         ), 
+      SChar(VecToken          ), 
       CChar(Token             ),
       NChar(Token             ), 
       LChar(Token             ), 
@@ -26,8 +28,24 @@ pub enum LexClass {
       Binop(Token             ), 
       Asnop(Token             ), 
       Postop(Token            ),
-      Tp(Vec<Either<Box<LexClass>, Token>>),
-      Lv(Vec<Either<Box<LexClass>, Token>>),
+      Tp(VecEither            ),
+      Lv(VecEither            ),
+      Simple(VecEither        ),
+}
+
+pub trait Unwrap<T>{
+      fn unwrap(T) -> VecEither;
+}
+
+impl Unwrap<LexClass> for LexClass{
+      fn unwrap(x: LexClass) -> VecEither {
+            match x {
+                  LexClass::Tp(e)
+                  | LexClass::Lv(e)
+                  | LexClass::Simple(e) => e, 
+                  _ => Vec::new(),
+            }
+      }
 }
 
 struct Pair<T> {
@@ -47,7 +65,7 @@ impl Alternative for OptionLexClass{
 
       fn add(x: OptionLexClass, y: OptionLexClass) -> OptionLexClass{
             let pair: Pair<OptionLexClass> = Pair{ x, y };
-            match pair{
+            match pair {
                   Pair{ x: Some(lc1), y: Some(lc2) } => Some(LexClass::add(lc1, lc2)),
                   Pair{ x: None,      y: Some(lc)  } => Some(lc), 
                   Pair{ x: Some(lc),  y: None      } => Some(lc),
@@ -116,6 +134,24 @@ impl Alternative for LexClass {
                         buff.extend(vec![Either::Left(Box::new(LexClass::Id(ts)))]);
                         LexClass::Lv(buff)
                   },
+                  Pair{ x: LexClass::Lv(l), y: LexClass::Postop(t) } => {
+                        let mut buff = Vec::new();
+                        buff.extend(l);
+                        buff.extend(vec![Either::Right(t)]);
+                        LexClass::Lv(buff)
+                  },
+                  Pair{ x: LexClass::Simple(l), y: LexClass::Lv(r)} =>{
+                        let mut buff = Vec::new();
+                        buff.extend(l);
+                        buff.extend(r);
+                        LexClass::Simple(buff)
+                  },
+                  Pair{x: LexClass::Simple(l), y: LexClass::Tp(r) } => {
+                        let mut buff = Vec::new();
+                        buff.extend(l);
+                        buff.extend(r);
+                        LexClass::Simple(buff)
+                  }
                   _ => LexClass::Empty
             }
       }
@@ -191,7 +227,7 @@ fn parse_num(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
       let parse_hex = |tokens: &mut Peekable<Iter<'_, Token>>| -> LexClass {
             let mut ret: Vec<Token> = Vec::new();
             loop {
-                  match tokens.peek() {
+                  match peek_non_whitespace(tokens) {
                         Some(Token::Undefined(Some('x')))
                         | Some(Token::Undefined(Some('X'))) => {tokens.next().unwrap();},
                         Some(Token::Num(_))
@@ -215,10 +251,10 @@ fn parse_num(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
             LexClass::HexNum(ret)
       };
 
-      match tokens.peek() {
+      match peek_non_whitespace(tokens) {
             Some(Token::Num(0)) => {
                   let t = tokens.next().unwrap();
-                  match tokens.peek() {
+                  match peek_non_whitespace(tokens) {
                         Some(Token::Undefined(Some('x')))
                         |Some(Token::Undefined(Some('X'))) 
                               => Some(LexClass::Num(Box::new(parse_hex(tokens)))),
@@ -316,7 +352,7 @@ fn parse_unop(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
             | Some(Token::Minus) => Some(LexClass::Unop(*tokens.next().unwrap())),
             Some(Token::Mult) => {
                   tokens.next();
-                  Some(LexClass::Unop(Token::FieldDeref))
+                  Some(LexClass::Unop(Token::PointerDeref))
             },
             _ => None,
       }
@@ -375,7 +411,6 @@ fn parse_postop(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
 }
 
 
-// TODO: Recursing on types
 fn parse_tp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
 
       let look_ahead = | tokens: &mut Peekable<Iter<'_, Token>>, prev: OptionLexClass| -> OptionLexClass{
@@ -466,6 +501,35 @@ fn parse_fid(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
 }
 
 fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
+      None
+}
+
+fn parse_simple(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
+      let mut parse = parse_lv(tokens);
+      if parse != None {
+            let asnop = parse_asnop(tokens);
+            if asnop != None {
+                  parse = OptionLexClass::add(parse, asnop);
+                  parse = OptionLexClass::add(parse, parse_exp(tokens));
+            } else {
+                  parse = OptionLexClass::add(parse, parse_postop(tokens));
+            }
+            return OptionLexClass::add(Some(LexClass::Simple(Vec::new())), parse);
+      }
+      parse = parse_exp(tokens);
+      if parse != None {
+            return OptionLexClass::add(Some(LexClass::Simple(Vec::new())), parse);
+      }
+      parse = parse_tp(tokens);
+      if parse != None {
+            parse = OptionLexClass::add(parse, parse_vid(tokens));
+            let asnop =  parse_asnop(tokens);
+            if asnop != None {
+                  parse = OptionLexClass::add(parse, asnop);
+                  parse = OptionLexClass::add(parse, parse_exp(tokens));
+            } 
+            return OptionLexClass::add(Some(LexClass::Simple(Vec::new())), parse);
+      } 
       None
 }
 
@@ -617,13 +681,40 @@ mod test {
             ]));
             let fourth_parse = parse_lv(&mut tokens_peekable);
             let expected_fourth_parse = Some(LexClass::Lv(vec![
-                  Either::Right(Token::FieldDeref),
-                  Either::Right(Token::FieldDeref),
+                  Either::Right(Token::PointerDeref),
+                  Either::Right(Token::PointerDeref),
                   Either::Left(Box::new(LexClass::Id(vec![Token::Undefined(Some('t'))]))),
             ]));
             assert_eq!(first_parse, expected_first_parse);
             assert_eq!(second_parse, expected_second_parse);
             assert_eq!(third_parse, expected_third_parse);
             assert_eq!(fourth_parse, expected_fourth_parse);
+            // TODO: Expr testing
+      }
+
+      #[test]
+      fn test_parsing_simple() {
+            let mut src_file = String::from("./src/parser/tests/simple.c0");
+            let parser = Parser::new(&mut src_file);
+            let mut tokens = parser.lexer().tokens();
+            let mut tokens_peekable = tokens.iter().peekable();
+            // TODO: Expr testing
+            let first_parse = parse_simple(&mut tokens_peekable);
+            let expected_first_parse = Some(LexClass::Simple(
+                  vec![
+                        Either::Left(Box::new(LexClass::Id(vec![Token::Undefined(Some('a'))]))),
+                        Either::Right(Token::PostPlusEq),
+                  ]
+            ));
+            let second_parse = parse_simple(&mut tokens_peekable);
+            let expected_second_parse = Some(LexClass::Simple(
+                  vec![
+                        Either::Right(Token::PointerDeref),
+                        Either::Left(Box::new(LexClass::Id(vec![Token::Undefined(Some('b'))]))),
+                        Either::Right(Token::PostMinusEq),
+                  ]
+            ));
+            assert_eq!(first_parse, expected_first_parse);
+            assert_eq!(second_parse, expected_second_parse);
       }
 }
