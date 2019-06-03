@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::fs::File;
 use std::io::{ BufRead, BufReader };
 use std::collections::{VecDeque, HashMap};
@@ -38,19 +39,14 @@ pub enum Token {
       Gte,
       Lte,
       NotEq,
-      Assign,
       LShift,
       LShiftEq,
       RShift,
       RShiftEq,
       LBracket,
       RBracket,
-      Dot,
-      SemiColon,
       LParen,
       RParen,
-      Command,
-      Type,
       BooleanAnd, 
       BooleanOr, 
       Num(u32),
@@ -67,7 +63,6 @@ pub enum Token {
       Char,
       String,
       Void,
-      Collection,
       Struct,
       // TODO: how to represent structs
       // TODO: How to represent collection of arguments for function types 
@@ -83,8 +78,11 @@ pub enum Token {
       Typedef, 
       Break, 
       Continue, 
-      Semicolon, 
+      SemiColon, 
       Use,
+      True, 
+      False,
+      Null,
 }
 
 pub fn open_file(path:&mut String) -> BufReader<File>{
@@ -109,8 +107,8 @@ pub struct Lexer {
 
 // TODO: Grammar extensions for annotations
 impl Lexer {
-      pub fn new(mut FilePath: &mut String) -> Lexer {
-            let tokens = lex_tokens(&mut chars(&mut FilePath));
+      pub fn new(mut file_path: &mut String) -> Lexer {
+            let tokens = lex_tokens(&mut chars(&mut file_path));
             Lexer {
                   tokens,
             }
@@ -128,30 +126,30 @@ impl Lexer {
       }
 }
 
-fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
+fn lex_tokens(chars: &mut VecDeque<char>) -> VecDeque<Token> {
       let mut tokens: VecDeque<Token> = VecDeque::new();
       loop {
-            println!("{:?}", Chars);
-            match Chars.pop_front() {
+            println!("{:?}", chars);
+            match chars.pop_front() {
 
                   Some(c) => {
                         match c {
                               ';' => tokens.push_back(Token::SemiColon),
                               '(' => tokens.push_back(Token::LParen),
                               ')' => tokens.push_back(Token::RParen),
-                              '~' => tokens.push_back(ops(Token::BitNot,   Chars)), 
-                              '=' => tokens.push_back(ops(Token::Equal,    Chars)),
-                              '!' => tokens.push_back(ops(Token::Not  ,    Chars)),
-                              '+' => tokens.push_back(ops(Token::Plus ,    Chars)),
-                              '-' => tokens.push_back(ops(Token::Minus,    Chars)),
-                              '&' => tokens.push_back(ops(Token::And  ,    Chars)),
-                              '%' => tokens.push_back(ops(Token::Mod  ,    Chars)),
-                              '/' => tokens.push_back(ops(Token::Div  ,    Chars)),
-                              '*' => tokens.push_back(ops(Token::Mult ,    Chars)), 
-                              '<' => tokens.push_back(ops(Token::Lt   ,    Chars)), 
-                              '>' => tokens.push_back(ops(Token::Gt   ,    Chars)),
-                              '^' => tokens.push_back(ops(Token::Xor  ,    Chars)), 
-                              '|' => tokens.push_back(ops(Token::Or   ,    Chars)), 
+                              '~' => tokens.push_back(ops(Token::BitNot,   chars)), 
+                              '=' => tokens.push_back(ops(Token::Equal,    chars)),
+                              '!' => tokens.push_back(ops(Token::Not  ,    chars)),
+                              '+' => tokens.push_back(ops(Token::Plus ,    chars)),
+                              '-' => tokens.push_back(ops(Token::Minus,    chars)),
+                              '&' => tokens.push_back(ops(Token::And  ,    chars)),
+                              '%' => tokens.push_back(ops(Token::Mod  ,    chars)),
+                              '/' => tokens.push_back(ops(Token::Div  ,    chars)),
+                              '*' => tokens.push_back(ops(Token::Mult ,    chars)), 
+                              '<' => tokens.push_back(ops(Token::Lt   ,    chars)), 
+                              '>' => tokens.push_back(ops(Token::Gt   ,    chars)),
+                              '^' => tokens.push_back(ops(Token::Xor  ,    chars)), 
+                              '|' => tokens.push_back(ops(Token::Or   ,    chars)), 
                               '[' => tokens.push_back(Token::LBracket), 
                               ']' => tokens.push_back(Token::RBracket),
                               '{' => tokens.push_back(Token::LCurly), 
@@ -165,13 +163,13 @@ fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
                               '0'|'1'|'2'|
                               '3'|'4'|'5'|
                               '6'|'7'|'8'|
-                              '9' => tokens.push_back(numeric(c, Chars)),
+                              '9' => tokens.push_back(numeric(c, chars)),
 
                               'i' | 'b' | 'c' | 
                               's' | 'v' | 'a' |
                               'e' | 'r' | 'w' |
                               'f' | '_' | 't' |
-                              '#' => tokens.push_back(keyword(c, Chars)),
+                              '#' | 'N' => tokens.push_back(keyword(c, chars)),
                                
                               // ' ' => continue,
                               _   => tokens.push_back(Token::Undefined(Some(c))),
@@ -183,9 +181,9 @@ fn lex_tokens(Chars: &mut VecDeque<char>) -> VecDeque<Token> {
       tokens
 }
 
-fn chars(FilePath: &mut String) -> VecDeque<char>{
+fn chars(file_path: &mut String) -> VecDeque<char>{
       let mut chars: VecDeque<char> = VecDeque::new();
-      for line in open_file(FilePath).lines() {
+      for line in open_file(file_path).lines() {
             match line {
                   Ok(value) => for c in value.chars() {
                         chars.push_back(c);
@@ -347,7 +345,7 @@ fn copy_n(n: usize, vec: &mut VecDeque<char>) -> Vec<char>{
 
 fn pattern_check(p: Vec<char>, chars: &mut VecDeque<char>) -> Option<Token> {
       
-      let mut next_n: Vec<char> = copy_n(p.len(), chars);
+      let next_n: Vec<char> = copy_n(p.len(), chars);
 
       if next_n == p {
             return Some(Token::Undefined(None));
@@ -409,6 +407,7 @@ fn keyword(head: char, chars: &mut VecDeque<char>) -> Token {
 
             'f' => {
                   patterns.insert(Token::For, vec!['o', 'r']);
+                  patterns.insert(Token::False, vec!['a','l','s','e']);
                   check_patterns(&patterns, chars)
             }
 
@@ -419,6 +418,11 @@ fn keyword(head: char, chars: &mut VecDeque<char>) -> Token {
 
             }
 
+            'N' => {
+                  patterns.insert(Token::Null, vec!['U', 'L', 'L']);
+                  check_patterns(&patterns, chars)
+            }
+
             's' => {
                   patterns.insert(Token::String, vec!['t', 'r', 'i', 'n', 'g']);
                   patterns.insert(Token::Struct, vec!['t', 'r', 'u', 'c', 't']);
@@ -427,6 +431,7 @@ fn keyword(head: char, chars: &mut VecDeque<char>) -> Token {
 
             't' => {
                   patterns.insert(Token::Typedef, vec!['y', 'p', 'e', 'd', 'e', 'f']);
+                  patterns.insert(Token::True, vec!['r', 'u', 'e']);
                   check_patterns(&patterns, chars)
             }
 

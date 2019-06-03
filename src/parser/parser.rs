@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use lexer::lexer::*;
 use std::boxed::Box;
 use std::collections::vec_deque::Iter;
@@ -7,6 +8,8 @@ use either::Either;
 type OptionLexClass = Option<LexClass>;
 type VecToken = Vec<Token>;
 type VecEither = Vec<Either<Box<LexClass>, Token>>;
+// type PeekableTokens = Peekable<Iter<'a, Token>>;
+type Combinator = fn(Peekable<Iter<'_, Token>>) -> OptionLexClass;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum LexClass {
@@ -32,6 +35,7 @@ pub enum LexClass {
       Lv(VecEither            ),
       Simple(VecEither        ),
       Exp(VecEither           ),
+      Keyword(VecToken        )
 }
 
 pub trait ToEither {
@@ -69,9 +73,7 @@ impl Alternative for OptionLexClass{
                   Pair{ x: Some(lc1), y: Some(lc2) } => Some(LexClass::add(lc1, lc2)),
                   Pair{ x: None,      y: Some(lc)  } => Some(lc), 
                   Pair{ x: Some(lc),  y: None      } => Some(lc),
-                  Pair{ x: None,      y: None      } => None, 
                   _ => None,
-
             }
       }
 }
@@ -155,8 +157,8 @@ impl Alternative for LexClass {
                               _ => (),
                         }
                         LexClass::Exp(buff)
-                  }
-                  _ => LexClass::Empty
+                  },
+                  _ => panic!("No existing combination for add({:?}, {:?})", pair.x, pair.y)
             }
       }
 }
@@ -164,21 +166,21 @@ impl Alternative for LexClass {
 #[derive(Clone)]
 pub struct Parser {
       lexer: Lexer,
-      parseTree: Vec<LexClass>,
+      parse_tree: Vec<LexClass>,
 }
 
 impl Parser {
-      pub fn new(filePath: &mut String) -> Parser {
+      pub fn new(file_path: &mut String) -> Parser {
             Parser {
-                  lexer: Lexer::new(filePath),
-                  parseTree: Vec::new(),
+                  lexer: Lexer::new(file_path),
+                  parse_tree: Vec::new(),
             }
       }
 
       pub fn empty() -> Parser {
             Parser{
                   lexer: Lexer::empty(), 
-                  parseTree: Vec::new(),
+                  parse_tree: Vec::new(),
             }
       }
 
@@ -504,25 +506,62 @@ fn parse_fid(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
       parse_id(tokens)
 }
 
+fn parse_keyword(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
+      match peek_non_whitespace(tokens) {
+            _ => None,
+      }
+}
+
 fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
       // TODO: Recursive look ahead
-      let look_ahead = |parsed: OptionLexClass, tokens: &mut Peekable<Iter<'_, Token>>|-> OptionLexClass {
-            None,
-      }
+      
       let mut parse: OptionLexClass;
+      parse = parse_num(tokens);
+      if parse != None {
+            return OptionLexClass::add(
+                  Some(LexClass::Exp(vec![])),
+                  parse
+            );
+      }
+
+      parse = parse_strlit(tokens);
+      if parse != None {
+            return OptionLexClass::add(
+                  Some(LexClass::Exp(vec![])),
+                  parse,
+            )
+      }
+
+      parse = parse_chrlit(tokens);
+      if parse != None {
+            return OptionLexClass::add(
+                  Some(LexClass::Exp(vec![])),
+                  parse,
+            );
+      }
+
+      parse = parse_keyword(tokens);
+      if parse != None {
+            return OptionLexClass::add(
+                  Some(LexClass::Exp(vec![])), 
+                  parse
+            );
+      }
+
+      parse = parse_vid(tokens);
+      if parse != None {
+            return OptionLexClass::add(
+                  Some(LexClass::Exp(vec![])),
+                  parse
+            );
+      }
+
       parse = parse_sep(tokens);
       if parse != None {
             parse = OptionLexClass::add(parse, parse_exp(tokens));
             parse = OptionLexClass::add(parse, parse_sep(tokens));
             return OptionLexClass::add(
                   Some(LexClass::Exp(vec![])), 
-                  parse
-            );
-      }
-      parse = parse_num(tokens);
-      if parse != None {
-            return OptionLexClass::add(
-                  Some(LexClass::Exp(vec![])),
                   parse
             );
       }
@@ -541,10 +580,12 @@ fn parse_simple(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
             }
             return OptionLexClass::add(Some(LexClass::Simple(Vec::new())), parse);
       }
+      
       parse = parse_exp(tokens);
       if parse != None {
             return OptionLexClass::add(Some(LexClass::Simple(Vec::new())), parse);
       }
+
       parse = parse_tp(tokens);
       if parse != None {
             parse = OptionLexClass::add(parse, parse_vid(tokens));
@@ -565,9 +606,9 @@ mod test {
       #[test]
       fn test_parsing_ids() {
             let mut src_file = String::from("./src/parser/tests/ids.c0");
-            let mut parser = Parser::new(&mut src_file);
-            let mut tokens = parser.lexer().tokens();
-            let mut parse_output = parse_id(&mut tokens.iter().peekable());
+            let parser = Parser::new(&mut src_file);
+            let tokens = parser.lexer().tokens();
+            let parse_output = parse_id(&mut tokens.iter().peekable());
             let expected_parse = Some(
                   LexClass::Id(
                         vec![
@@ -583,9 +624,9 @@ mod test {
       #[test]
       fn test_parsing_hex() {
             let mut src_file = String::from("./src/parser/tests/hex.c0");
-            let mut parser = Parser::new(&mut src_file); 
-            let mut tokens = parser.lexer().tokens();
-            let mut parse_output = parse_num(&mut tokens.iter().peekable());
+            let parser = Parser::new(&mut src_file); 
+            let tokens = parser.lexer().tokens();
+            let parse_output = parse_num(&mut tokens.iter().peekable());
             let expected_parse =
                   Some(LexClass::Num(
                         Box::new(
@@ -632,8 +673,8 @@ mod test {
       fn test_parsing_chrlit() {
             let mut src_file = String::from("./src/parser/tests/char.c0");
             let parser = Parser::new(&mut src_file);
-            let mut tokens = parser.lexer().tokens();
-            let mut parse_output = parse_chrlit(&mut tokens.iter().peekable());
+            let tokens = parser.lexer().tokens();
+            let parse_output = parse_chrlit(&mut tokens.iter().peekable());
             let expected_parse = Some(
                   LexClass::ChrLit(Token::Undefined(Some('a'))),
             );
@@ -645,8 +686,8 @@ mod test {
       fn test_parsing_liblit() {
             let mut src_file = String::from("./src/parser/tests/lib.c0");
             let parser = Parser::new(&mut src_file);
-            let mut tokens = parser.lexer().tokens();
-            let mut parse_output = parse_liblit(&mut tokens.iter().peekable()); 
+            let tokens = parser.lexer().tokens();
+            let parse_output = parse_liblit(&mut tokens.iter().peekable()); 
             let expected_parse = Some(
                   LexClass::LibLit(
                         vec![
@@ -664,7 +705,7 @@ mod test {
       fn test_parsing_tp() {
             let mut src_file = String::from("./src/parser/tests/tp.c0");
             let parser = Parser::new(&mut src_file);
-            let mut tokens = parser.lexer().tokens();
+            let tokens = parser.lexer().tokens();
             let mut tokens_peekable = tokens.iter().peekable();
             let first_parse = parse_tp(&mut tokens_peekable);
             let expected_first_parse = Some(LexClass::Tp(vec![ Either::Right(Token::Int), Either::Right(Token::Mult) ]));
@@ -721,7 +762,7 @@ mod test {
       fn test_parsing_simple() {
             let mut src_file = String::from("./src/parser/tests/simple.c0");
             let parser = Parser::new(&mut src_file);
-            let mut tokens = parser.lexer().tokens();
+            let tokens = parser.lexer().tokens();
             let mut tokens_peekable = tokens.iter().peekable();
             // TODO: Expr testing
             let first_parse = parse_simple(&mut tokens_peekable);
