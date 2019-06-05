@@ -3,5 +3,5 @@ mod parser;
 extern crate either;
 
 fn main() {
-    ()
+      ()
 }
