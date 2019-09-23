@@ -346,6 +346,10 @@ fn parse_sep(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass{
             | Some(Token::RBracket)    
             | Some(Token::LCurly)    
             | Some(Token::RCurly)     
+            | Some(Token::FieldSelect)
+            | Some(Token::TernIf)
+            | Some(Token::TernNot)
+            | Some(Token::FieldDeref)
             | Some(Token::Comma) => Some(LexClass::Sep(*tokens.next().unwrap())), 
             _ => None, 
       }
@@ -506,6 +510,7 @@ fn parse_fid(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
       parse_id(tokens)
 }
 
+// TODO: keyword parsing
 fn parse_keyword(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
       match peek_non_whitespace(tokens) {
             _ => None,
@@ -514,57 +519,125 @@ fn parse_keyword(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
 
 fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
       // TODO: Recursive look ahead
+      // TODO: Recursive expr tokens
+
+      let wrap_exp_parse = |parseOption: OptionLexClass| -> OptionLexClass {
+            OptionLexClass::add(
+                  Some(LexClass::Exp(vec![])), 
+                  parseOption
+            )
+      }
       
       let mut parse: OptionLexClass;
       parse = parse_num(tokens);
       if parse != None {
-            return OptionLexClass::add(
-                  Some(LexClass::Exp(vec![])),
-                  parse
-            );
+            return wrap_exp_parse(parse);
       }
 
       parse = parse_strlit(tokens);
       if parse != None {
-            return OptionLexClass::add(
-                  Some(LexClass::Exp(vec![])),
-                  parse,
-            )
+            return wrap_exp_parse(parse);
       }
 
       parse = parse_chrlit(tokens);
       if parse != None {
-            return OptionLexClass::add(
-                  Some(LexClass::Exp(vec![])),
-                  parse,
-            );
+            return wrap_exp_parse(parse);
       }
 
       parse = parse_keyword(tokens);
       if parse != None {
-            return OptionLexClass::add(
-                  Some(LexClass::Exp(vec![])), 
-                  parse
-            );
+            parse = match parse {
+                  Some(LexClass::Keyword(vec![Token::Alloc]))=> {
+                        parse = OptionLexClass::add(
+                              parse, 
+                              parse_sep(tokens)
+                        );
+                        parse = OptionLexClass::add(
+                              parse, 
+                              parse_tp(tokens)
+                        );
+                        OptionLexClass::add(
+                              parse, 
+                              parse_sep(tokens)
+                        )
+                  }
+                  Some(LexClass::Keyword(vec![Token::AllocArray])) => {
+                        parse = OptionLexClass::add(
+                              parse, 
+                              parse_sep(tokens)
+                        );
+                        parse = OptionLexClass::add(
+                              parse, 
+                              parse_tp(tokens)
+                        ); 
+                        parse = OptionLexClass::add(
+                              parse, 
+                              parse_sep(tokens)
+                        );
+                        parse = OptionLexClass::add(
+                              parse, 
+                              parse_exp(tokens)
+                        );
+                        OptionLexClass::add(
+                              parse, 
+                              parse_sep(tokens)
+                        )
+                  },
+                  _     => parse,
+            };
+
+            return wrap_exp_parse(parse);
       }
 
       parse = parse_vid(tokens);
       if parse != None {
-            return OptionLexClass::add(
-                  Some(LexClass::Exp(vec![])),
-                  parse
-            );
+            let maybe_sep = peek_non_whitespace(tokens)
+            match maybe_sep {
+                  Some(Token::LBracket) => {
+                        parse = OptionLexClass::add(
+                              parse, 
+                              parse_sep(tokens)
+                        );
+                        parse = OptionLexClass::add(
+                              parse,
+                              parse_exp(tokens)
+                        );
+                        let mut continuation = peek_non_whitespace(tokens);
+                        while continuation == Some(Token::Comma) {
+                                    parse = OptionLexClass::add(
+                                    parse, 
+                                    parse_sep(tokens)
+                              );
+                              parse = OptionLexClass::add(
+                                    parse,
+                                    parse_exp(tokens)
+                              );
+                              
+                              continuation = peek_non_whitespace(tokens);
+                        }
+                        while continuation == Some(Token::RBracket) {
+                              parse = OptionLexClass::add(
+                                    parse, 
+                                    parse_sep(tokens)
+                              );
+
+                              continuation = peek_non_whitespace(tokens);
+                        }
+
+                  }
+            }
+            return wrap_exp_parse(parse);
       }
 
-      parse = parse_sep(tokens);
+      parse = parse_binop(tokens);
       if parse != None {
-            parse = OptionLexClass::add(parse, parse_exp(tokens));
-            parse = OptionLexClass::add(parse, parse_sep(tokens));
-            return OptionLexClass::add(
-                  Some(LexClass::Exp(vec![])), 
-                  parse
+            parse = OptionLexClass::add(
+                  parse, 
+                  parse_exp(tokens)
             );
+            return wrap_exp_parse(parse);
       }
+
       None
 }
 
