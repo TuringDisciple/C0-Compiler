@@ -520,7 +520,7 @@ fn parse_keyword(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
 fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
       // TODO: Recursive look ahead
       // TODO: Recursive expr tokens
-
+      
       let wrap_exp_parse = |parseOption: OptionLexClass| -> OptionLexClass {
             OptionLexClass::add(
                   Some(LexClass::Exp(vec![])), 
@@ -528,22 +528,26 @@ fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
             )
       };
       
+      //<num>
       let mut parse: OptionLexClass;
       parse = parse_num(tokens);
       if parse != None {
             return wrap_exp_parse(parse);
       }
 
+      //<strlit>
       parse = parse_strlit(tokens);
       if parse != None {
             return wrap_exp_parse(parse);
       }
-
+      
+      // <chrlit> 
       parse = parse_chrlit(tokens);
       if parse != None {
             return wrap_exp_parse(parse);
       }
 
+      // true | false | NULL | alloc (<tp>) | alloc_array (<tp>, <exp>)
       parse = parse_keyword(tokens);
       if parse != None {
             parse = match parse {
@@ -595,6 +599,7 @@ fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
             return wrap_exp_parse(parse);
       }
 
+      // <vid> | <vid> ([<exp>(, <exp>)*])
       parse = parse_vid(tokens);
       if parse != None {
             let maybe_sep = peek_non_whitespace(tokens);
@@ -636,7 +641,8 @@ fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
             return wrap_exp_parse(parse);
       }
 
-      parse = parse_binop(tokens);
+      // <unop><exp>
+      parse = parse_unop(tokens);
       if parse != None {
             parse = OptionLexClass::add(
                   parse, 
@@ -862,5 +868,11 @@ mod test {
             ));
             assert_eq!(first_parse, expected_first_parse);
             assert_eq!(second_parse, expected_second_parse);
+      }
+
+      #[test]
+      fn test_parsing_expr() {
+            // TODO: Complete parsing expr tests
+            let mut src_file = ()
       }
 }
