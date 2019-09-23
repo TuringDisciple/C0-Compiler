@@ -526,7 +526,7 @@ fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
                   Some(LexClass::Exp(vec![])), 
                   parseOption
             )
-      }
+      };
       
       let mut parse: OptionLexClass;
       parse = parse_num(tokens);
@@ -547,42 +547,48 @@ fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
       parse = parse_keyword(tokens);
       if parse != None {
             parse = match parse {
-                  Some(LexClass::Keyword(vec![Token::Alloc]))=> {
-                        parse = OptionLexClass::add(
-                              parse, 
-                              parse_sep(tokens)
-                        );
-                        parse = OptionLexClass::add(
-                              parse, 
-                              parse_tp(tokens)
-                        );
-                        OptionLexClass::add(
-                              parse, 
-                              parse_sep(tokens)
-                        )
-                  }
-                  Some(LexClass::Keyword(vec![Token::AllocArray])) => {
-                        parse = OptionLexClass::add(
-                              parse, 
-                              parse_sep(tokens)
-                        );
-                        parse = OptionLexClass::add(
-                              parse, 
-                              parse_tp(tokens)
-                        ); 
-                        parse = OptionLexClass::add(
-                              parse, 
-                              parse_sep(tokens)
-                        );
-                        parse = OptionLexClass::add(
-                              parse, 
-                              parse_exp(tokens)
-                        );
-                        OptionLexClass::add(
-                              parse, 
-                              parse_sep(tokens)
-                        )
-                  },
+                  Some(LexClass::Keyword(v)) => {
+                        let mut parse_mov = Some(LexClass::Keyword(v.clone()));
+                        if v[0] == Token::Alloc {
+                              parse_mov = OptionLexClass::add(
+                                    parse_mov, 
+                                    parse_sep(tokens)
+                              );
+                              parse_mov = OptionLexClass::add(
+                                    parse_mov, 
+                                    parse_tp(tokens)
+                              );
+                              OptionLexClass::add(
+                                    parse_mov, 
+                                    parse_sep(tokens)
+                              )
+                        }
+                        else if v[0] == Token::AllocArray {
+                              parse_mov = OptionLexClass::add(
+                                    parse_mov, 
+                                    parse_sep(tokens)
+                              );
+                              parse_mov = OptionLexClass::add(
+                                    parse_mov, 
+                                    parse_tp(tokens)
+                              ); 
+                              parse_mov = OptionLexClass::add(
+                                    parse_mov, 
+                                    parse_sep(tokens)
+                              );
+                              parse_mov = OptionLexClass::add(
+                                    parse_mov, 
+                                    parse_exp(tokens)
+                              );
+                              OptionLexClass::add(
+                                    parse_mov, 
+                                    parse_sep(tokens)
+                              )
+                        }
+                        else {
+                              parse_mov
+                        } 
+                 }
                   _     => parse,
             };
 
@@ -591,7 +597,7 @@ fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
 
       parse = parse_vid(tokens);
       if parse != None {
-            let maybe_sep = peek_non_whitespace(tokens)
+            let maybe_sep = peek_non_whitespace(tokens);
             match maybe_sep {
                   Some(Token::LBracket) => {
                         parse = OptionLexClass::add(
@@ -624,7 +630,8 @@ fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
                               continuation = peek_non_whitespace(tokens);
                         }
 
-                  }
+                  },
+                  _ => (),
             }
             return wrap_exp_parse(parse);
       }
