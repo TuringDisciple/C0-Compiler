@@ -52,10 +52,7 @@ impl ToEither for VecToken {
       }
 }
 
-struct Pair<T> {
-      x: T,
-      y: T,
-}
+struct Pair<T>(T, T);
 
 pub trait Alternative {
       fn empty() -> Self;
@@ -68,11 +65,11 @@ impl Alternative for OptionLexClass{
       }
 
       fn add(x: OptionLexClass, y: OptionLexClass) -> OptionLexClass{
-            let pair: Pair<OptionLexClass> = Pair{ x, y };
+            let pair: Pair<OptionLexClass> = Pair(x, y);
             match pair {
-                  Pair{ x: Some(lc1), y: Some(lc2) } => Some(LexClass::add(lc1, lc2)),
-                  Pair{ x: None,      y: Some(lc)  } => Some(lc), 
-                  Pair{ x: Some(lc),  y: None      } => Some(lc),
+                  Pair( Some(lc1), Some(lc2) ) => Some(LexClass::add(lc1, lc2)),
+                  Pair( None,      Some(lc)  ) => Some(lc), 
+                  Pair( Some(lc),  None      ) => Some(lc),
                   _ => None,
             }
       }
@@ -84,72 +81,72 @@ impl Alternative for LexClass {
       }
 
       fn add(x: LexClass, y: LexClass) -> LexClass {
-            let pair: Pair<LexClass> = Pair{ x, y };
+            let pair: Pair<LexClass> = Pair(x, y );
             let mut buff: VecEither = Vec::new();
             match pair {
-                  Pair{ x: LexClass::Empty, y: LexClass::Empty }     => LexClass::Empty, 
-                  Pair{ x: LexClass::Tp(op1), y: LexClass::Tp(op2) } => {
+                  Pair(LexClass::Empty, LexClass::Empty)   => LexClass::Empty, 
+                  Pair(LexClass::Tp(op1), LexClass::Tp(op2)) => {
                         buff.extend(op1);
                         buff.extend(op2);
                         LexClass::Tp(buff)
                   },
-                  Pair{ x: LexClass::Tp(op1), y: LexClass::Id(ts) } => {
+                  Pair(LexClass::Tp(op1), LexClass::Id(ts)) => {
                         buff.extend(op1);
                         let wrapper = vec![Either::Left(Box::new(LexClass::Id(ts)))];
                         buff.extend(wrapper);
                         LexClass::Tp(buff)
                   },
-                  Pair{ x: LexClass::Unop(t), y: LexClass::Lv(l) } => {
+                  Pair(LexClass::Unop(t), LexClass::Lv(l)) => {
                         buff.extend(vec![Either::Right(t)]);
                         buff.extend(l);
                         LexClass::Lv(buff)
                   }, 
-                  Pair{ x: LexClass::Lv(l), y: LexClass::Unop(t) } => {
+                  Pair(LexClass::Lv(l), LexClass::Unop(t)) => {
                         buff.extend(l);
                         buff.extend(vec![Either::Right(t)]);
                         LexClass::Lv(buff)
                   },
-                  Pair{ x: LexClass::Lv(l), y: LexClass::Binop(t) } => {
+                  Pair(LexClass::Lv(l), LexClass::Binop(t)) => {
                         buff.extend(l);
                         buff.extend(vec![Either::Right(t)]);
                         LexClass::Lv(buff)
                   },
-                  Pair{ x: LexClass::Sep(t), y: LexClass::Lv(l) } => {
+                  Pair(LexClass::Sep(t), LexClass::Lv(l)) => {
                         buff.extend(vec![Either::Right(t)]);
                         buff.extend(l);
                         LexClass::Lv(buff)
                   },
-                  Pair{ x: LexClass::Lv(l), y: LexClass::Sep(t) } => {
+                  Pair(LexClass::Lv(l), LexClass::Sep(t)) => {
                         buff.extend(l);
                         buff.extend(vec![Either::Right(t)]);
                         LexClass::Lv(buff)
                   },
-                  Pair{ x: LexClass::Lv(l), y: LexClass::Id(ts) } => {
+                  Pair(LexClass::Lv(l), LexClass::Id(ts)) => {
                         buff.extend(l);
                         buff.extend(vec![Either::Left(Box::new(LexClass::Id(ts)))]);
                         LexClass::Lv(buff)
                   },
-                  Pair{ x: LexClass::Lv(l), y: LexClass::Postop(t) } => {
+                  Pair(LexClass::Lv(l), LexClass::Postop(t)) => {
                         buff.extend(l);
                         buff.extend(vec![Either::Right(t)]);
                         LexClass::Lv(buff)
                   },
-                  Pair{ x: LexClass::Simple(l), y: LexClass::Lv(r)} =>{
+                  Pair(LexClass::Simple(l), LexClass::Lv(r)) =>{
                         buff.extend(l);
                         buff.extend(r);
                         LexClass::Simple(buff)
                   },
-                  Pair{x: LexClass::Simple(l), y: LexClass::Tp(r) } => {
+                  Pair(LexClass::Simple(l), LexClass::Tp(r))=> {
                         buff.extend(l);
                         buff.extend(r);
                         LexClass::Simple(buff)
                   }
-                  Pair{ x:LexClass::Sep(t), y: LexClass::Exp(l) } => {
+                  Pair(LexClass::Sep(t), LexClass::Exp(l))=> {
                         buff.extend(vec![Either::Right(t)]);
                         buff.extend(l);
                         LexClass::Exp(buff)
                   },
-                  Pair{ x: LexClass::Exp(l), y: LexClass::Num(b)} => {
+                  Pair(LexClass::Exp(l), LexClass::Num(b)) => {
                         buff.extend(l);
                         match *b{
                               LexClass::DecNum(t)  => buff.extend(vec![Either::Right(t)]),
@@ -158,7 +155,7 @@ impl Alternative for LexClass {
                         }
                         LexClass::Exp(buff)
                   },
-                  _ => panic!("No existing combination for add({:?}, {:?})", pair.x, pair.y)
+                  _ => panic!("No existing combination for add({:?}, {:?})", pair.0, pair.1)
             }
       }
 }
