@@ -68,6 +68,7 @@ pub enum Token {
     // TODO: How to represent collection of arguments for function types 
     // Keywords
     If, 
+    Else,
     While, 
     For, 
     Return, 
@@ -126,6 +127,7 @@ impl Lexer {
     }
 }
 
+// TODO: Lexing strings
 fn lex_tokens(chars: &mut VecDeque<char>) -> VecDeque<Token> {
     let mut tokens: VecDeque<Token> = VecDeque::new();
     loop {
@@ -304,6 +306,7 @@ fn ops(head: Token, chars: &mut VecDeque<char>) -> Token {
         _ => re_insert(tail, tail2, chars, head)
         // TODO: Finish integer ops
         // TODO: Boolean expressions
+        // TODO: Pointers from Token::Mult
     }
 }
 
@@ -402,6 +405,7 @@ fn keyword(head: char, chars: &mut VecDeque<char>) -> Token {
 
         'e' => {
             patterns.insert(Token::Error, vec!['r', 'r', 'o', 'r']);
+            patterns.insert(Token::Else, vec!['l', 's', 'e']);
             check_patterns(&patterns, chars)
         }
 
@@ -563,6 +567,7 @@ mod test {
         assert_eq!(Token::Error,      next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
         assert_eq!(Token::For,        next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
         assert_eq!(Token::If,         next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
+        assert_eq!(Token::Else,       next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
         assert_eq!(Token::Int,        next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
         assert_eq!(Token::String,     next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
         assert_eq!(Token::Struct,     next_non_space(&mut lexer.tokens).unwrap_or(Token::Undefined(None)));
