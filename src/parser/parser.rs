@@ -85,40 +85,45 @@ impl Alternative for LexClass {
         let mut buff: VecEither = Vec::new();
         match pair {
             Pair(LexClass::Empty, LexClass::Empty)   => LexClass::Empty, 
-            Pair(LexClass::Tp(op1), LexClass::Tp(op2)) => {
-                buff.extend(op1);
-                buff.extend(op2);
+            Pair(LexClass::Tp(l), LexClass::Tp(r)) => {
+                buff.extend(l);
+                buff.extend(r);
                 LexClass::Tp(buff)
             }
-            Pair(LexClass::Tp(op1), lc) => {
-                buff.extend(op1);
+            Pair(LexClass::Tp(l), lc) => {
+                buff.extend(l);
                 buff.extend(vec![Either::Left(Box::new(lc))]);
                 LexClass::Tp(buff)
             },
-            Pair(LexClass::Lv(op1), LexClass::Lv(op2)) => {
-                buff.extend(op1);
-                buff.extend(op2);
+            Pair(LexClass::Lv(l), LexClass::Lv(r)) => {
+                buff.extend(l);
+                buff.extend(r);
                 LexClass::Lv(buff)
             }
-            Pair(lc, LexClass::Lv(l)) => {
-                buff.extend(vec![Either::Left(Box::new(lc))]);
+            Pair(LexClass::Simple(l), LexClass::Simple(r)) => {
                 buff.extend(l);
-                LexClass::Lv(buff)
+                buff.extend(r);
+                LexClass::Simple(buff)
+            }
+            Pair(LexClass::Simple(l), lc) =>{
+                buff.extend(l);
+                buff.extend(vec![Either::Left(Box::new(lc))]);
+                LexClass::Simple(buff)
             },
             Pair(LexClass::Lv(l), lc) => {
                 buff.extend(l);
                 buff.extend(vec![Either::Left(Box::new(lc))]);
                 LexClass::Lv(buff)
             },
-            Pair(LexClass::Simple(l), lc) =>{
-                buff.extend(l);
-                buff.extend(vec![Either::Left(Box::new(lc))]);
-                LexClass::Simple(buff)
-            },
             Pair(LexClass::Exp(l), lc) => {
                 buff.extend(l);
                 buff.extend(vec![Either::Left(Box::new(lc))]);
                 LexClass::Exp(buff)
+            },
+            Pair(lc, LexClass::Lv(l)) => {
+                buff.extend(vec![Either::Left(Box::new(lc))]);
+                buff.extend(l);
+                LexClass::Lv(buff)
             },
             _ => panic!("No existing combination for add({:?}, {:?})", pair.0, pair.1)
         }
@@ -706,12 +711,24 @@ fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
 fn parse_simple(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
     let mut parse = parse_lv(tokens);
     if parse != None {
+        parse = OptionLexClass::add(
+            Some(LexClass::Simple(vec![])),
+            parse 
+        );
         let asnop = parse_asnop(tokens);
         if asnop != None {
             parse = OptionLexClass::add(parse, asnop);
             parse = OptionLexClass::add(parse, parse_exp(tokens));
         } else {
-            parse = OptionLexClass::add(parse, parse_postop(tokens));
+            match peek_non_whitespace(tokens) {
+                Some(Token::PostPlusEq)
+                | Some(Token::PostMinusEq) => 
+                    parse = OptionLexClass::add(
+                        parse, 
+                        Some(LexClass::Simple(vec![Either::Right(*tokens.next().unwrap())]))),
+                _ => (),
+            }
+            //parse = OptionLexClass::add(parse, parse_postop(tokens));
         }
         return OptionLexClass::add(Some(LexClass::Simple(Vec::new())), parse);
     }
@@ -731,6 +748,8 @@ fn parse_simple(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
         } 
         return OptionLexClass::add(Some(LexClass::Simple(Vec::new())), parse);
     } 
+
+    // TODO: Complete parsing simple
     None
 }
 
@@ -914,15 +933,17 @@ mod test {
         let first_parse = parse_simple(&mut tokens_peekable);
         let expected_first_parse = Some(LexClass::Simple(
             vec![
-                Either::Left(Box::new(LexClass::Id(vec![Token::Undefined(Some('a'))]))),
+                Either::Left(Box::new(LexClass::Lv(vec![Either::Left(Box::new(LexClass::Id(vec![Token::Undefined(Some('a'))])))]))),
                 Either::Right(Token::PostPlusEq),
             ]
         ));
         let second_parse = parse_simple(&mut tokens_peekable);
         let expected_second_parse = Some(LexClass::Simple(
             vec![
-                Either::Right(Token::PointerDeref),
-                Either::Left(Box::new(LexClass::Id(vec![Token::Undefined(Some('b'))]))),
+                Either::Left(
+                    Box::new(LexClass::Lv(vec![
+                        Either::Right(Token::PointerDeref), 
+                        Either::Left(Box::new(LexClass::Id(vec![Token::Undefined(Some('b'))])))]))),
                 Either::Right(Token::PostMinusEq),
             ]
         ));
