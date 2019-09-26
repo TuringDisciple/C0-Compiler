@@ -1,10 +1,10 @@
 "hi"
 'c'
 true
-ah
-- ah
-ah + ah
-ah ? ah : ah
+ah;
+- ah;
+ah + ah;
+ah ? ah : ah;
 ah . v ;
 ah -> v ;
 alloc(int)

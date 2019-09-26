@@ -35,7 +35,8 @@ pub enum LexClass {
     Lv(VecEither            ),
     Simple(VecEither        ),
     Exp(VecEither           ),
-    Keyword(Token        )
+    Keyword(Token           ),
+    Mix(VecEither           ),
 }
 
 pub trait ToEither {
@@ -135,7 +136,15 @@ impl Alternative for LexClass {
                 buff.extend(r);
                 LexClass::Exp(buff)
             }
-            _ => panic!("No existing combination for add({:?}, {:?})", pair.0, pair.1)
+            
+            _ => {
+                LexClass::Mix(
+                    vec![
+                        Either::Left(Box::new(pair.0)),
+                        Either::Left(Box::new(pair.1))
+                    ]
+                )
+            }
         }
     }
 }
@@ -771,6 +780,17 @@ fn parse_simple(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
 
 // TODO: Parse <stmt>
 
+// ;
+fn parse_semicolon(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
+    match peek_non_whitespace(tokens) {
+        Some(Token::SemiColon) => {
+            tokens.next();
+            Some(LexClass::Sep(Token::SemiColon))
+        },
+        _ => None
+    }
+}
+
 #[cfg(test)]
 mod test {
     use parser::parser::*;
@@ -1110,8 +1130,9 @@ mod test {
                 )
             )
         ])));
-        
-        assert_eq!(parse, None);
+        parse_semicolon(tokens);
+
+        assert_eq!(parse, expected_parse);
 
         // TODO: Left recursion parsing
     }
