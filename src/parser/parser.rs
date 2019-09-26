@@ -95,6 +95,11 @@ impl Alternative for LexClass {
                 buff.extend(vec![Either::Left(Box::new(lc))]);
                 LexClass::Tp(buff)
             },
+            Pair(LexClass::Lv(op1), LexClass::Lv(op2)) => {
+                buff.extend(op1);
+                buff.extend(op2);
+                LexClass::Lv(buff)
+            }
             Pair(lc, LexClass::Lv(l)) => {
                 buff.extend(vec![Either::Left(Box::new(lc))]);
                 buff.extend(l);
@@ -437,13 +442,12 @@ fn parse_lv(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
         match peek_non_whitespace(tokens) {
             Some(Token::FieldSelect) 
             | Some(Token::FieldDeref)=> {
-                ret = OptionLexClass::add(ret, parse_binop(tokens));
+                let t = *tokens.next().unwrap();
+                ret = OptionLexClass::add(ret, Some(LexClass::Lv(vec![Either::Right(t)])));
                 OptionLexClass::add(ret, parse_fid(tokens))
             },
             Some(Token::LBracket) => {
-                ret = OptionLexClass::add(ret, parse_sep(tokens));
-                ret = OptionLexClass::add(ret, parse_exp(tokens));
-                OptionLexClass::add(ret, parse_sep(tokens))
+                OptionLexClass::add(ret, parse_exp(tokens))
             }
             _ => ret,
         }
@@ -452,11 +456,19 @@ fn parse_lv(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
     match peek_non_whitespace(tokens) {
         Some(Token::Undefined(Some(_))) =>
             look_ahead(parse_vid(tokens), tokens),
-        Some(Token::Mult) =>
-            OptionLexClass::add(parse_unop(tokens), parse_lv(tokens)),
+        Some(Token::Mult) =>{
+            tokens.next();
+            OptionLexClass::add(Some(LexClass::Lv(vec![
+                Either::Right(Token::PointerDeref)])), 
+                parse_lv(tokens))
+        },
         Some(Token::LParen) => {
-            let buff = OptionLexClass::add(parse_sep(tokens), parse_lv(tokens));
-            OptionLexClass::add(buff, parse_sep(tokens))
+            let buff = OptionLexClass::add(Some(LexClass::Lv(vec![
+                Either::Right(*tokens.next().unwrap())])), 
+                parse_lv(tokens));
+            OptionLexClass::add(
+                buff, 
+                Some(LexClass::Lv(vec![Either::Right(*tokens.next().unwrap())])))
         },
         _ => None,
     }
