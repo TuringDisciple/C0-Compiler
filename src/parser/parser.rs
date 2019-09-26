@@ -527,8 +527,8 @@ fn parse_keyword(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
 
 fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
     
-    let wrap_exp_parse = |parse_option: OptionLexClass, tokens| -> OptionLexClass {
-        let p = OptionLexClass::add(
+    let wrap_exp_parse = |parse_option: OptionLexClass| -> OptionLexClass {
+        OptionLexClass::add(
             Some(LexClass::Exp(vec![])), 
             parse_option
         )
@@ -541,19 +541,19 @@ fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
     //<num>
     parse = parse_num(tokens);
     if parse != None {
-        return wrap_exp_parse(parse, tokens);
+        return wrap_exp_parse(parse);
     }
 
     //<strlit>
     parse = parse_strlit(tokens);
     if parse != None {
-        return wrap_exp_parse(parse, tokens);
+        return wrap_exp_parse(parse);
     }
     
     // <chrlit> 
     parse = parse_chrlit(tokens);
     if parse != None {
-        return wrap_exp_parse(parse, tokens);
+        return wrap_exp_parse(parse);
     }
 
     // true | false | NULL | alloc (<tp>) | alloc_array (<tp>, <exp>)
@@ -605,7 +605,7 @@ fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
             _     => parse,
         };
 
-        return wrap_exp_parse(parse, tokens);
+        return wrap_exp_parse(parse);
     }
 
     // <vid> | <vid> ([<exp>(, <exp>)*])
@@ -647,7 +647,7 @@ fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
             OptionLexClass::add(
                 parse, 
                 option_parse
-            ), tokens
+            )
         )
     }
 
@@ -658,7 +658,7 @@ fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
             OptionLexClass::add(
                 parse, 
                 parse_exp(tokens)
-            ), tokens
+            )
         );
     }
 
@@ -673,7 +673,7 @@ fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
     //                 OptionLexClass::add(
     //                     parse, 
     //                     parse_exp(tokens)
-    //                 ), tokens
+    //                 )
     //             )
     //         },
     //         Some(LexClass::Binop(Token::FieldDeref))
@@ -682,7 +682,7 @@ fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
     //                 OptionLexClass::add(
     //                     parse, 
     //                     parse_fid(tokens)
-    //                 ), tokens
+    //                 )
     //             )
     //         }
     //         Some(_) => {
@@ -690,7 +690,7 @@ fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
     //                 OptionLexClass::add(
     //                     parse, 
     //                     parse_exp(tokens)
-    //                 ), tokens
+    //                 )
     //             )
     //         }
     //         _ => ()
@@ -700,7 +700,7 @@ fn parse_exp(tokens: &mut Peekable<Iter<'_, Token>>) -> OptionLexClass {
     //         OptionLexClass::add(
     //             parse, 
     //             parse_exp(tokens) 
-    //         ), tokens
+    //         )
     //     )
 
     // }
