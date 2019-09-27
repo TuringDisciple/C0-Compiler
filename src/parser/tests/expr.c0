@@ -7,5 +7,5 @@ ah + ah;
 ah ? ah : ah;
 ah . v ;
 ah -> v ;
-alloc(int)
+alloc(int);
 alloc_array(int, ah)

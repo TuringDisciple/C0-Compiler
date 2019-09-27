@@ -121,6 +121,11 @@ impl Alternative for LexClass {
                 buff.extend(r);
                 LexClass::Exp(buff)
             },
+            Pair(LexClass::Exp(l), LexClass::Mix(r)) => {
+                buff.extend(l);
+                buff.extend(r);
+                LexClass::Exp(buff)
+            }
             Pair(LexClass::Exp(l), lc) => {
                 buff.extend(l);
                 buff.extend(vec![Either::Left(Box::new(lc))]);
@@ -1082,7 +1087,7 @@ mod test {
     
     // TODO: <expr> testing
     #[test]
-    pub fn test_parse_expr() {
+    pub fn test_parsing_expr() {
         let mut src_file = String::from("./src/parser/tests/expr.c0");
         let parser = Parser::new(&mut src_file);
         let tokens = parser.lexer().tokens();
@@ -1130,10 +1135,88 @@ mod test {
                 )
             )
         ])));
-        parse_semicolon(tokens);
-
         assert_eq!(parse, expected_parse);
+        parse_semicolon(&mut tokens_peekable);
 
+        parse = parse_exp(&mut tokens_peekable);
+        expected_parse = Some(LexClass::Exp(vec![
+            Either::Left(Box::new(LexClass::Unop(Token::Minus))), 
+            Either::Left(Box::new(LexClass::Id(
+                vec![
+                    Token::Undefined(Some('a')), 
+                    Token::Undefined(Some('h'))
+                ]
+            )))
+        ]));
+        assert_eq!(parse, expected_parse);
+        parse_semicolon(&mut tokens_peekable);
+
+        parse = parse_exp(&mut tokens_peekable);
+        expected_parse = Some(LexClass::Exp(vec![
+            Either::Left(Box::new(LexClass::Id(vec![
+                Token::Undefined(Some('a')),
+                Token::Undefined(Some('h'))
+            ]))),
+            Either::Left(Box::new(LexClass::Binop(Token::Plus))), 
+            Either::Left(Box::new(LexClass::Id(vec![
+                Token::Undefined(Some('a')),
+                Token::Undefined(Some('h'))
+            ])))
+        ]));
+        assert_eq!(parse, expected_parse);
+        parse_semicolon(&mut tokens_peekable);
+
+        parse = parse_exp(&mut tokens_peekable);
+        expected_parse = Some(LexClass::Exp(vec![
+            Either::Left(Box::new(LexClass::Id(vec![
+                Token::Undefined(Some('a')),
+                Token::Undefined(Some('h'))]))),
+            Either::Left(Box::new(LexClass::Binop(Token::TernIf))),
+            Either::Left(Box::new(LexClass::Id(vec![
+                Token::Undefined(Some('a')), 
+                Token::Undefined(Some('h'))
+            ]))),
+            Either::Left(Box::new(LexClass::Binop(Token::TernNot))), 
+            Either::Left(Box::new(LexClass::Id(vec![
+                Token::Undefined(Some('a')), 
+                Token::Undefined(Some('h'))
+            ])))
+        ]));
+        assert_eq!(parse, expected_parse);
+        parse_semicolon(&mut tokens_peekable);
+
+        parse = parse_exp(&mut tokens_peekable);
+        expected_parse = Some(LexClass::Exp(vec![
+            Either::Left(Box::new(LexClass::Id(vec![
+                Token::Undefined(Some('a')),
+                Token::Undefined(Some('h'))
+            ]))),
+            Either::Left(Box::new(LexClass::Binop(Token::FieldSelect))), 
+            Either::Left(Box::new(LexClass::Id(vec![
+                Token::Undefined(Some('v'))
+            ])))
+        ]));
+        assert_eq!(parse, expected_parse);
+        parse_semicolon(&mut tokens_peekable);
+
+        parse = parse_exp(&mut tokens_peekable);
+        expected_parse = Some(LexClass::Exp(vec![
+            Either::Left(Box::new(LexClass::Id(vec![
+                Token::Undefined(Some('a')),
+                Token::Undefined(Some('h'))
+            ]))),
+            Either::Left(Box::new(LexClass::Binop(Token::FieldDeref))), 
+            Either::Left(Box::new(LexClass::Id(vec![
+                Token::Undefined(Some('v'))
+            ])))
+        ]));
+        assert_eq!(parse, expected_parse);
+        parse_semicolon(&mut tokens_peekable);
+
+        // parse = parse_exp(&mut tokens_peekable);
+        // expected_parse = 
+        // assert_eq!(parse, expected_parse);
+        // parse_semicolon(&mut tokens_peekable);
         // TODO: Left recursion parsing
     }
 
