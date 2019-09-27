@@ -7,5 +7,6 @@ ah + ah;
 ah ? ah : ah;
 ah . v ;
 ah -> v ;
+(0);
 alloc(int);
 alloc_array(int, ah)

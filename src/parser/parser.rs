@@ -1213,6 +1213,16 @@ mod test {
         assert_eq!(parse, expected_parse);
         parse_semicolon(&mut tokens_peekable);
 
+        parse = parse_exp(&mut tokens_peekable);
+        expected_parse = Some(LexClass::Exp(vec![
+            Either::Right(Token::LParen),
+            Either::Left(Box::new(
+                LexClass::Num(
+                    Box::new(LexClass::DecNum(Token::Num(0)))))),
+            Either::Right(Token::RParen),
+        ]));
+        assert_eq!(parse, expected_parse);
+        parse_semicolon(&mut tokens_peekable);
         // parse = parse_exp(&mut tokens_peekable);
         // expected_parse = 
         // assert_eq!(parse, expected_parse);
