@@ -128,6 +128,7 @@ impl Lexer {
 }
 
 // TODO: Lexing strings
+// TODO: spotting syntax errors
 fn lex_tokens(chars: &mut VecDeque<char>) -> VecDeque<Token> {
     let mut tokens: VecDeque<Token> = VecDeque::new();
     loop {
