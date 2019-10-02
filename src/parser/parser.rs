@@ -1224,11 +1224,7 @@ mod test {
         assert_eq!(parse, expected_parse);
         parse_semicolon(&mut tokens_peekable);
         
-        parse = parse_exp(&mut tokens_peekable);
-        expected_parse = 
-        assert_eq!(parse, expected_parse);
-        parse_semicolon(&mut tokens_peekable);
-        // TODO: Left recursion parsing
+       // TODO: Left recursion parsing
     }
 
     // TODO: <stmt> testing
