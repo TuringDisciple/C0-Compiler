@@ -6,7 +6,6 @@ pub struct Parser {
     lexer: Lexer,
     ast: Vec<()>,
 }
-L
 /*
 The purpose of the parser is to apply semantic meaning to our language lexemes.
 Our parser must therefore perform the following functions
