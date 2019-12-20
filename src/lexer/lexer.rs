@@ -173,7 +173,6 @@ fn lex_tokens(chars: &mut VecDeque<char>) -> VecDeque<Token> {
                     'e' | 'r' | 'w' |
                     'f' | '_' | 't' |
                     '#' | 'N' => tokens.push_back(keyword(c, chars)),
-                     
                     // ' ' => continue,
                     _   => tokens.push_back(Token::Undefined(Some(c))),
                 }
