@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/nashpotato/C0-Compiler.svg?branch=master)](https://travis-ci.org/nashpotato/C0-Compiler)
 ### Introduction 
 
 A compiler for the C0 programming language.
