@@ -23,7 +23,7 @@ impl Parser {
     pub fn new(file_path: &mut String) -> Parser {
         Parser {
             lexer: Lexer::new(file_path),
-            ast: Vec::new();
+            ast: Vec::new(),
         }
     }
 
