@@ -3,6 +3,7 @@ use lexer::lexer::*;
 use std::vec::Vec;
 use std::result;
 use std::collections::VecDeque;
+use std::string::String;
 
 /*
 The purpose of the parser is to apply semantic meaning to our language lexemes.
@@ -20,6 +21,11 @@ it's left recursive which will introduce complications with parsing down the lin
 enum Exp{
     Id(Vec<Token>),
     Num(u32),
+    Sep(Token),
+    Unop(Token),
+    Binop(Token),
+    Asnop(Token),
+    Postop(Token),
 }
 
 #[derive(Clone)]
@@ -108,6 +114,121 @@ impl Parser {
             _ => Err(()),
         }
     }
+
+    //<sep> ::= ( | ) | [ | ] | { | } | , | ;
+    fn parseSep(&mut self) -> Result<Exp, ()> {
+        for t in vec![
+            Token::LParen,
+            Token::RParen,
+            Token::LBracket,
+            Token::RBracket,
+            Token::LCurly,
+            Token::RCurly,
+            Token::Comma,
+            Token::SemiColon
+        ] {
+            match self.eat(t) {
+                Ok(t) => return Ok(Exp::Sep(t)),
+                _ => (),
+            }
+        }
+        Err(())
+    }
+
+    // <unop> ::= ! | ~ | - | *
+    fn parseUnop(&mut self) -> Result<Exp, ()> {
+        for t in vec![
+            Token::Not,
+            Token::BitNot,
+            Token::Minus,
+            Token::Mult,
+        ] {
+            match self.eat(t) {
+                Ok(Token::Mult) => return Ok(Exp::Unop(Token::PointerDeref)),
+                Ok(t) => return Ok(Exp::Unop(t)),
+                _ => (),
+            }
+        }
+        Err(())
+    }
+
+    //<binop> ::= . | -> | * | / | % | + | - | << | >>
+    //    | < | <= | >= | > | == | !=
+    //    | & | ^ | | | && | || | ? | :
+    fn parseBinop(&mut self) -> Result<Exp, ()> {
+        for t in vec![
+            Token::FieldSelect,
+            Token::FieldDeref,
+            Token::Mult,
+            Token::Div,
+            Token::Mod,
+            Token::Mod,
+            Token::Plus,
+            Token::Minus,
+            Token::LShift,
+            Token::RShift,
+            Token::Lt,
+            Token::Lte,
+            Token::Gte,
+            Token::Gt,
+            Token::Equality,
+            Token::NotEq,
+            Token::And,
+            Token::Xor,
+            Token::Or,
+            Token::BooleanAnd,
+            Token::BooleanOr,
+            Token::TernIf,
+            Token::TernElse,
+        ] {
+            match self.eat(t) {
+                Ok(t) => return Ok(Exp::Binop(t)),
+                _ => (),
+            }
+        }
+        Err(())
+    }
+
+    //<asnop> ::= = | += | -= | *= | /= | %= | <<= | >>=
+    //    | &= | ^= | |=
+    fn parseAsnop(&mut self) -> Result<Exp, ()> {
+        for t in vec![
+            Token::Equal,
+            Token::PlusEq,
+            Token::MinusEq,
+            Token::MultEq,
+            Token::DivEq,
+            Token::ModEq,
+            Token::LShiftEq,
+            Token::RShiftEq,
+            Token::AndEq,
+            Token::XorEq,
+            Token::OrEq,
+        ] {
+            match self.eat(t) {
+                Ok(t) => return Ok(Exp::Asnop(t)),
+                _ => (),
+            }
+        }
+
+        Err(())
+    }
+    //<postop> ::= -- | ++
+    fn parsePostop(&mut self) -> Result<Exp, ()> {
+        for t in vec![
+            Token::PostPlusEq,
+            Token::PostMinusEq,
+        ]{
+            match self.eat(t) {
+                Ok(t) => return Ok(Exp::Postop(t)),
+                _ => (),
+            }
+        }
+
+        Err(())
+    }
+
+
 }
 
 #[cfg(test)]
@@ -115,7 +236,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parsingId() {
+    fn parsingLexicalTokens() {
+        let parser = Parser::new(&mut String::from("./src/parser/tests/tokens.c0"));
     }
 
     #[test]
