@@ -5,6 +5,7 @@ use std::collections::{VecDeque, HashMap};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Token {
+    Empty,
     // Character and operators
     Undefined(Option<char>),
     Comma, 
