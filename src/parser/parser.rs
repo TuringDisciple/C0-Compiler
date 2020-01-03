@@ -17,7 +17,7 @@ Fortunately there is a formal grammar specification
 for the C0 language. The problems with this grammar is that
 it's left recursive which will introduce complications with parsing down the line.
  */
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 enum Exp{
     Id(Vec<Token>),
     Num(u32),
@@ -30,15 +30,15 @@ enum Exp{
 
 #[derive(Clone)]
 pub struct Parser {
-    tokens: VecDeque<Token>,
+    lexer: Lexer,
     head: Option<Token>,
 }
 impl Parser {
     pub fn new(file_path: &mut String) -> Parser {
-        let mut tokens = Lexer::new(file_path).tokens();
-        let head = tokens.pop_front();
+        let mut lexer = Lexer::new(file_path);
+        let head = lexer.next();
         Parser {
-            tokens,
+            lexer,
             head,
         }
     }
@@ -49,12 +49,12 @@ impl Parser {
                 match (h, t) {
                     (Token::Undefined(_), Token::Undefined(_)) |
                     (Token::Num(_), Token::Num(_)) => {
-                        self.head = self.tokens.pop_front();
+                        self.head = self.lexer.next();
                         Ok(h)
                     },
                     (_, _) => {
                         if h == t {
-                            self.head = self.tokens.pop_front();
+                            self.head = self.lexer.next();
                             Ok(h)
                         } else {
                             Err(())
@@ -92,7 +92,7 @@ impl Parser {
      */
 
     // <id> ::= [A-Za-z_][A-Za-z0-9_]*
-    fn parseId(&mut self) -> Result<Exp, ()>{
+    pub fn parseId(&mut self) -> Result<Exp, ()>{
         let mut tokens = Vec::new();
         loop {
             match self.eat(Token::Undefined(None)){
@@ -108,7 +108,7 @@ impl Parser {
     }
 
     // num ::= 0 | [1-9][0-9]* // TODO: lexing hex
-    fn parseNum(&mut self) -> Result<Exp, ()>{
+    pub fn parseNum(&mut self) -> Result<Exp, ()>{
         match self.eat(Token::Num(0)) {
             Ok(Token::Num(x)) => Ok(Exp::Num(x)),
             _ => Err(()),
@@ -116,7 +116,7 @@ impl Parser {
     }
 
     //<sep> ::= ( | ) | [ | ] | { | } | , | ;
-    fn parseSep(&mut self) -> Result<Exp, ()> {
+    pub fn parseSep(&mut self) -> Result<Exp, ()> {
         for t in vec![
             Token::LParen,
             Token::RParen,
@@ -136,7 +136,7 @@ impl Parser {
     }
 
     // <unop> ::= ! | ~ | - | *
-    fn parseUnop(&mut self) -> Result<Exp, ()> {
+    pub fn parseUnop(&mut self) -> Result<Exp, ()> {
         for t in vec![
             Token::Not,
             Token::BitNot,
@@ -155,7 +155,7 @@ impl Parser {
     //<binop> ::= . | -> | * | / | % | + | - | << | >>
     //    | < | <= | >= | > | == | !=
     //    | & | ^ | | | && | || | ? | :
-    fn parseBinop(&mut self) -> Result<Exp, ()> {
+    pub fn parseBinop(&mut self) -> Result<Exp, ()> {
         for t in vec![
             Token::FieldSelect,
             Token::FieldDeref,
@@ -191,7 +191,7 @@ impl Parser {
 
     //<asnop> ::= = | += | -= | *= | /= | %= | <<= | >>=
     //    | &= | ^= | |=
-    fn parseAsnop(&mut self) -> Result<Exp, ()> {
+    pub fn parseAsnop(&mut self) -> Result<Exp, ()> {
         for t in vec![
             Token::Equal,
             Token::PlusEq,
@@ -214,7 +214,7 @@ impl Parser {
         Err(())
     }
     //<postop> ::= -- | ++
-    fn parsePostop(&mut self) -> Result<Exp, ()> {
+    pub fn parsePostop(&mut self) -> Result<Exp, ()> {
         for t in vec![
             Token::PostPlusEq,
             Token::PostMinusEq,
@@ -237,11 +237,123 @@ mod tests {
 
     #[test]
     fn parsingLexicalTokens() {
-        let parser = Parser::new(&mut String::from("./src/parser/tests/tokens.c0"));
-    }
+        let mut parser = Parser::new(&mut String::from("./src/parser/tests/tokens.txt"));
+        let expectedResult: Vec<Result<Exp, ()>> = vec![
+            Ok(Exp::Id(vec![Token::Undefined(Some('v')), Token::Undefined(Some('a'))])),
+            Ok(Exp::Num(1234)),
+            Ok(Exp::Sep(Token::LParen)),
+            Ok(Exp::Sep(Token::RParen)),
+            Ok(Exp::Sep(Token::LBracket)),
+            Ok(Exp::Sep(Token::RBracket)),
+            Ok(Exp::Sep(Token::LCurly)),
+            Ok(Exp::Sep(Token::RCurly)),
+            Ok(Exp::Sep(Token::Comma)),
+            Ok(Exp::Sep(Token::SemiColon)),
+            Ok(Exp::Unop(Token::Not)),
+            Ok(Exp::Unop(Token::BitNot)),
+            Ok(Exp::Unop(Token::PointerDeref)),
+            Ok(Exp::Unop(Token::Minus)),
+            Ok(Exp::Binop(Token::FieldSelect)),
+            Ok(Exp::Binop(Token::FieldDeref)),
+            Ok(Exp::Binop(Token::Div)),
+            Ok(Exp::Binop(Token::Mod)),
+            Ok(Exp::Binop(Token::Plus)),
+            Ok(Exp::Binop(Token::LShift)),
+            Ok(Exp::Binop(Token::RShift)),
+            Ok(Exp::Binop(Token::Lt)),
+            Ok(Exp::Binop(Token::Lte)),
+            Ok(Exp::Binop(Token::Gte)),
+            Ok(Exp::Binop(Token::Gt)),
+            Ok(Exp::Binop(Token::Equality)),
+            Ok(Exp::Binop(Token::NotEq)),
+            Ok(Exp::Binop(Token::And)),
+            Ok(Exp::Binop(Token::Xor)),
+            Ok(Exp::Binop(Token::Or)),
+            Ok(Exp::Binop(Token::BooleanAnd)),
+            Ok(Exp::Binop(Token::BooleanOr)),
+            Ok(Exp::Binop(Token::TernIf)),
+            Ok(Exp::Binop(Token::TernElse)),
+            Ok(Exp::Asnop(Token::Equal)),
+            Ok(Exp::Asnop(Token::PlusEq)),
+            Ok(Exp::Asnop(Token::MinusEq)),
+            Ok(Exp::Asnop(Token::MultEq)),
+            Ok(Exp::Asnop(Token::DivEq)),
+            Ok(Exp::Asnop(Token::ModEq)),
+            Ok(Exp::Asnop(Token::LShiftEq)),
+            Ok(Exp::Asnop(Token::RShiftEq)),
+            Ok(Exp::Asnop(Token::AndEq)),
+            Ok(Exp::Asnop(Token::XorEq)),
+            Ok(Exp::Asnop(Token::OrEq)),
+            Ok(Exp::Postop(Token::PostMinusEq)),
+            Ok(Exp::Postop(Token::PostPlusEq)),
+        ];
+        let mut results: Vec<Result<Exp, ()>> = Vec::new();
+        loop {
+            match parser.parseId() {
+                Ok(exp) => {
+                    results.push(Ok(exp));
+                    continue
+                },
+                _ => (),
+            }
 
-    #[test]
-    fn parsingNumbers(){
+            match parser.parseNum() {
+                Ok(exp) => {
+                    results.push(Ok(exp));
+                    continue
+                },
+                _ => (),
+            }
+
+            match parser.parseSep() {
+                Ok(exp) => {
+                    results.push(Ok(exp));
+                    continue
+                },
+                _ => (),
+            }
+
+            match parser.parseUnop(){
+                Ok(exp) => {
+                    results.push(Ok(exp));
+                    continue
+                },
+                _ => (),
+            }
+
+            match parser.parseBinop() {
+                Ok(exp) => {
+                    results.push(Ok(exp));
+                    continue
+                },
+                _ => (),
+            }
+
+            match parser.parseAsnop() {
+                Ok(exp) => {
+                    results.push(Ok(exp));
+                    continue
+                },
+                _ => (),
+            }
+
+            match parser.parsePostop(){
+                Ok(exp) => {
+                    results.push(Ok(exp));
+                    continue
+                }
+                _ => ()
+            }
+            break
+        }
+        assert_eq!(expectedResult.len(), results.len());
+        let count = expectedResult.into_iter().zip(results).filter(|(a, b)| {
+            match (a, b) {
+                (Ok(x), Ok(y)) => *x != *y,
+                _ => true,
+            }
+        }).count();
+        assert_eq!(count, 0);
     }
 }
 
