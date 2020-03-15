@@ -26,6 +26,7 @@ enum Exp{
     Binop(Token),
     Asnop(Token),
     Postop(Token),
+    Tp(Vec<Token>)
 }
 
 #[derive(Clone)]
@@ -228,6 +229,106 @@ impl Parser {
         Err(())
     }
 
+    /*
+    <tp> symbols are our first case of directly left recursive grammar rules
+
+   <tp> ::= int | bool | string | char | void
+            | <tp> * | <tp> [ ] | struct <sid> | <aid>
+
+    Directly left recursive grammar rules are of the form
+
+    A -> Ab
+
+    In the tp case these are the legal transforms
+    <tp> ::= <tp> * | <tp> []
+
+    These introduce problems in parsing as they would cause an infinite when being parsed
+    For example in this example
+
+    int ***
+    This is a valid pointer declaration, but first into the token stream will be int, thereby leaving ***
+    not bound. Alternatively we could "look ahead", i.e. <tp> ***, parse *** and try to parse <tp>
+    but this could lead to infinite recursion
+
+    I will be following the paper "Removing Left Recursion from Context-Free Grammars" to solve this issue.
+    This will be done using Paull's algorithm. An rough illustration is below
+
+    <tp> ::= <tp> * | <tp> [] | B1 ... | BS (B1...Bs are the renaming non-left recursive productions)
+
+    We modify to the following
+
+    <tp> ::= B1<tp'> | ... | Bs<tp'>
+    <tp'> ::= * | *<tp'> | [] | []<tp'>
+    */
+    fn _parseTp(&mut self, acc: &mut Vec<Token>) -> Vec<Token> {
+        for t in vec![
+            Token::Mult,
+            Token::LBracket,
+        ] {
+            match self.eat(t) {
+                Ok(Token::LBracket) => {
+                    match self.eat(Token::RBracket) {
+                        Ok(_) => {
+                            acc.push(Token::LBracket);
+                            acc.push(Token::RBracket);
+                            return self._parseTp(acc);
+                        },
+                        _ => panic!("Unmatched left square bracket in source"),
+                    }
+                }
+                Ok(t) => {
+                    acc.push(t);
+                    return self._parseTp(acc);
+                }
+                _ => (),
+            }
+        }
+        acc.to_vec()
+    }
+    pub fn parseTp(&mut self) -> Result<Exp, ()> {
+        let mut _tpAcc: Vec<Token> = vec![];
+        for t in vec![
+            Token::Int,
+            Token::Bool,
+            Token::Char,
+            Token::String,
+            Token::Void,
+            Token::Struct,
+            Token::Undefined(None),
+            // TODO:
+        ] {
+            match self.eat(t) {
+                Ok(t) => {
+                    match t {
+                        Token::Struct => {
+                            let mut id = match self.parseId() {
+                                Ok(Exp::Id(t)) => t,
+                                _ => panic!("No identifier for struct"),
+                            };
+                            _tpAcc.push(t);
+                            _tpAcc.append(&mut id);
+                        }
+                        Token::Undefined(_) => {
+                            let mut id = vec![t];
+                            match self.parseId() {
+                                Ok(Exp::Id(result)) => {
+                                    id.append(&mut result.clone());
+                                    _tpAcc.append(&mut id);
+                                }
+                                _ => (),
+                            }
+                        }
+                        _ => _tpAcc.push(t),
+                    }
+                    let leftRecursion = self._parseTp(&mut _tpAcc);
+                    return Ok(Exp::Tp(leftRecursion))
+                },
+                _ => (),
+            }
+        }
+
+        Err(())
+    }
 
 }
 
