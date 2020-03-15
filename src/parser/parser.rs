@@ -277,7 +277,7 @@ impl Parser {
                     }
                 }
                 Ok(t) => {
-                    acc.push(t);
+                    acc.push(Token::PointerDeref);
                     return self._parseTp(acc);
                 }
                 _ => (),
@@ -295,7 +295,6 @@ impl Parser {
             Token::Void,
             Token::Struct,
             Token::Undefined(None),
-            // TODO:
         ] {
             match self.eat(t) {
                 Ok(t) => {
@@ -309,11 +308,10 @@ impl Parser {
                             _tpAcc.append(&mut id);
                         }
                         Token::Undefined(_) => {
-                            let mut id = vec![t];
+                            _tpAcc.push(t);
                             match self.parseId() {
                                 Ok(Exp::Id(result)) => {
-                                    id.append(&mut result.clone());
-                                    _tpAcc.append(&mut id);
+                                    _tpAcc.append(&mut result.clone());
                                 }
                                 _ => (),
                             }
@@ -336,6 +334,13 @@ impl Parser {
 mod tests {
     use super::*;
 
+    fn vecCheck<T: PartialEq>(v1: Vec<T>, v2: Vec<T>) {
+        assert_eq!(v1.len(), v2.len());
+        let count = v1.into_iter().zip(v2).filter(|(a, b)| {
+            *a != *b
+        }).count();
+        assert_eq!(count, 0);
+    }
     #[test]
     fn parsingLexicalTokens() {
         let mut parser = Parser::new(&mut String::from("./src/parser/tests/tokens.txt"));
@@ -447,15 +452,32 @@ mod tests {
             }
             break
         }
-        assert_eq!(expectedResult.len(), results.len());
-        let count = expectedResult.into_iter().zip(results).filter(|(a, b)| {
-            match (a, b) {
-                (Ok(x), Ok(y)) => *x != *y,
-                _ => true,
-            }
-        }).count();
-        assert_eq!(count, 0);
+        vecCheck(expectedResult, results);
     }
+
+    #[test]
+    fn parsingTp() {
+        let mut parser = Parser::new(&mut String::from("./src/parser/tests/tp.txt"));
+        let expectedResult: Vec<Result<Exp, ()>> = vec![
+            Ok(Exp::Tp(vec![Token::Int])),
+            Ok(Exp::Tp(vec![Token::Char])),
+            Ok(Exp::Tp(vec![Token::Bool])),
+            Ok(Exp::Tp(vec![Token::String])),
+            Ok(Exp::Tp(vec![Token::Void])),
+            Ok(Exp::Tp(vec![Token::Struct, Token::Undefined(Some('i')), Token::PointerDeref])),
+            Ok(Exp::Tp(vec![Token::Undefined(Some('i')), Token::PointerDeref, Token::PointerDeref]))
+        ];
+        let mut results = Vec::new();
+        loop {
+            match parser.parseTp() {
+                Ok(exp) =>
+                    results.push(Ok(exp)),
+                _ => break,
+            }
+        }
+        vecCheck(results, expectedResult);
+    }
+
 }
 
 

@@ -1,0 +1,8 @@
+int
+char
+bool
+string
+void
+struct i *
+i **
+
