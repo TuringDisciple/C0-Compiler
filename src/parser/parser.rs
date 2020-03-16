@@ -26,7 +26,8 @@ enum Exp{
     Binop(Token),
     Asnop(Token),
     Postop(Token),
-    Tp(Vec<Token>)
+    Tp(Vec<Token>),
+    Expr(Vec<Token>),
 }
 
 #[derive(Clone)]
@@ -116,9 +117,8 @@ impl Parser {
         }
     }
 
-    //<sep> ::= ( | ) | [ | ] | { | } | , | ;
-    pub fn parseSep(&mut self) -> Result<Exp, ()> {
-        for t in vec![
+    fn seps() -> Vec<Token> {
+        vec![
             Token::LParen,
             Token::RParen,
             Token::LBracket,
@@ -127,7 +127,11 @@ impl Parser {
             Token::RCurly,
             Token::Comma,
             Token::SemiColon
-        ] {
+        ]
+    }
+    //<sep> ::= ( | ) | [ | ] | { | } | , | ;
+    pub fn parseSep(&mut self) -> Result<Exp, ()> {
+        for t in seps()  {
             match self.eat(t) {
                 Ok(t) => return Ok(Exp::Sep(t)),
                 _ => (),
@@ -136,14 +140,17 @@ impl Parser {
         Err(())
     }
 
-    // <unop> ::= ! | ~ | - | *
-    pub fn parseUnop(&mut self) -> Result<Exp, ()> {
-        for t in vec![
+    fn unops() -> Vec<Token> {
+        vec![
             Token::Not,
             Token::BitNot,
             Token::Minus,
             Token::Mult,
-        ] {
+        ]
+    }
+    // <unop> ::= ! | ~ | - | *
+    pub fn parseUnop(&mut self) -> Result<Exp, ()> {
+        for t in unops() {
             match self.eat(t) {
                 Ok(Token::Mult) => return Ok(Exp::Unop(Token::PointerDeref)),
                 Ok(t) => return Ok(Exp::Unop(t)),
@@ -156,8 +163,8 @@ impl Parser {
     //<binop> ::= . | -> | * | / | % | + | - | << | >>
     //    | < | <= | >= | > | == | !=
     //    | & | ^ | | | && | || | ? | :
-    pub fn parseBinop(&mut self) -> Result<Exp, ()> {
-        for t in vec![
+    fn binops() -> Vec<Token> {
+        vec![
             Token::FieldSelect,
             Token::FieldDeref,
             Token::Mult,
@@ -181,7 +188,11 @@ impl Parser {
             Token::BooleanOr,
             Token::TernIf,
             Token::TernElse,
-        ] {
+        ]
+    }
+
+    pub fn parseBinop(&mut self) -> Result<Exp, ()> {
+        for t in binops() {
             match self.eat(t) {
                 Ok(t) => return Ok(Exp::Binop(t)),
                 _ => (),
@@ -190,10 +201,8 @@ impl Parser {
         Err(())
     }
 
-    //<asnop> ::= = | += | -= | *= | /= | %= | <<= | >>=
-    //    | &= | ^= | |=
-    pub fn parseAsnop(&mut self) -> Result<Exp, ()> {
-        for t in vec![
+    fn asnops() -> Vec<Token>{
+        vec![
             Token::Equal,
             Token::PlusEq,
             Token::MinusEq,
@@ -205,7 +214,12 @@ impl Parser {
             Token::AndEq,
             Token::XorEq,
             Token::OrEq,
-        ] {
+        ]
+    }
+    //<asnop> ::= = | += | -= | *= | /= | %= | <<= | >>=
+    //    | &= | ^= | |=
+    pub fn parseAsnop(&mut self) -> Result<Exp, ()> {
+        for t in asnops(){
             match self.eat(t) {
                 Ok(t) => return Ok(Exp::Asnop(t)),
                 _ => (),
@@ -214,12 +228,15 @@ impl Parser {
 
         Err(())
     }
+    fn postops() -> Vec<Token>{
+        vec![
+            Token::PostMinusEq,
+            Token::PostPlusEq,
+        ]
+    }
     //<postop> ::= -- | ++
     pub fn parsePostop(&mut self) -> Result<Exp, ()> {
-        for t in vec![
-            Token::PostPlusEq,
-            Token::PostMinusEq,
-        ]{
+        for t in postops() {
             match self.eat(t) {
                 Ok(t) => return Ok(Exp::Postop(t)),
                 _ => (),
@@ -257,7 +274,7 @@ impl Parser {
 
     We modify to the following
 
-    <tp> ::= B1<tp'> | ... | Bs<tp'>
+    <tp> ::= B1 | B1<tp'> | ... | Bs | Bs<tp'>
     <tp'> ::= * | *<tp'> | [] | []<tp'>
     */
     fn _parseTp(&mut self, acc: &mut Vec<Token>) -> Vec<Token> {
@@ -327,6 +344,47 @@ impl Parser {
 
         Err(())
     }
+    /*
+    Similar to <tp>, <exp> consists of a lot of left recursive generators
+    <exp> ::= ( <exp> )
+    | <num> | <strlit> | <chrlit> | true | false | NULL
+    | <vid> | <exp> <binop> <exp> | <unop> <exp>
+    | <exp> ? <exp> : <exp>
+    | <vid> ( [<exp> (, <exp>)*] )
+    | <exp> . <fid> | <exp> -> <fid>
+    | <exp> [ <exp> ]
+    | alloc ( <tp> ) | alloc_array ( <tp> , <exp> )
+
+    Using Paull's algorithm we get the following
+
+    <exp> ::= ( <exp> ) | ( <exp> ) <exp'> | <num> | <num> <exp'>
+              |<strlit>| <strlit> <exp'> | <chrlit> | <chrlit> <exp'> | true | true <exp'>
+              | false | false <exp'> | NULL | NULL <exp'> | <vid> | <vid> <exp'> | <unop><exp> | <unop> <exp> <exp'>
+              | <vid> ( [<exp> (, <exp>)*] )
+              | <vid> ( [<exp> (, <exp>)*] ) <exp'>
+              | alloc (<tp> )
+              | alloc (<tp> ) <exp'>
+              | alloc_array (<tp>, <exp> )
+              | alloc_array (<tp>, <exp> ) <exp'>
+
+    <exp'> ::= <binop> <exp> | <binop> <exp> <exp'> | ? <exp> : <exp> | ? <exp> : <exp> <exp'>
+              | . <fid> | . <fid> <exp'> | -> <fid> | -> <fid> <exp'> | [ <exp> ] | [ <exp> ] <exp'>
+
+    */
+    pub fn _parseExp (&mut self, &mut acc: Vec<Token> ) -> Vec<Token> {
+        let mut startTokens = self.binops();
+        startTokens.push(Token::LBracket);
+        for t in startTokens{
+            match self.eat(t) {
+                _ => ()
+            }
+        }
+        acc
+    }
+    pub fn parseExp() -> Result<Exp, ()> {
+
+        Err(())
+    }
 
 }
 
@@ -336,9 +394,12 @@ mod tests {
 
     fn vecCheck<T: PartialEq>(v1: Vec<T>, v2: Vec<T>) {
         assert_eq!(v1.len(), v2.len());
-        let count = v1.into_iter().zip(v2).filter(|(a, b)| {
-            *a != *b
-        }).count();
+        let count = v1
+            .into_iter()
+            .zip(v2)
+            .filter(|(a, b)| {
+                *a != *b
+            }).count();
         assert_eq!(count, 0);
     }
     #[test]
