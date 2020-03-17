@@ -29,7 +29,77 @@ enum Exp{
     Tp(Vec<Token>),
     Expr(Vec<Token>),
 }
+fn seps() -> Vec<Token> {
+    vec![
+        Token::LParen,
+        Token::RParen,
+        Token::LBracket,
+        Token::RBracket,
+        Token::LCurly,
+        Token::RCurly,
+        Token::Comma,
+        Token::SemiColon
+    ]
+}
 
+fn unops() -> Vec<Token> {
+    vec![
+        Token::Not,
+        Token::BitNot,
+        Token::Minus,
+        Token::Mult,
+    ]
+}
+
+fn binops() -> Vec<Token> {
+    vec![
+        Token::FieldSelect,
+        Token::FieldDeref,
+        Token::Mult,
+        Token::Div,
+        Token::Mod,
+        Token::Mod,
+        Token::Plus,
+        Token::Minus,
+        Token::LShift,
+        Token::RShift,
+        Token::Lt,
+        Token::Lte,
+        Token::Gte,
+        Token::Gt,
+        Token::Equality,
+        Token::NotEq,
+        Token::And,
+        Token::Xor,
+        Token::Or,
+        Token::BooleanAnd,
+        Token::BooleanOr,
+        Token::TernIf,
+        Token::TernElse,
+    ]
+}
+
+fn asnops() -> Vec<Token>{
+    vec![
+        Token::Equal,
+        Token::PlusEq,
+        Token::MinusEq,
+        Token::MultEq,
+        Token::DivEq,
+        Token::ModEq,
+        Token::LShiftEq,
+        Token::RShiftEq,
+        Token::AndEq,
+        Token::XorEq,
+        Token::OrEq,
+    ]
+}
+fn postops() -> Vec<Token>{
+    vec![
+        Token::PostMinusEq,
+        Token::PostPlusEq,
+    ]
+}
 #[derive(Clone)]
 pub struct Parser {
     lexer: Lexer,
@@ -117,18 +187,7 @@ impl Parser {
         }
     }
 
-    fn seps() -> Vec<Token> {
-        vec![
-            Token::LParen,
-            Token::RParen,
-            Token::LBracket,
-            Token::RBracket,
-            Token::LCurly,
-            Token::RCurly,
-            Token::Comma,
-            Token::SemiColon
-        ]
-    }
+
     //<sep> ::= ( | ) | [ | ] | { | } | , | ;
     pub fn parseSep(&mut self) -> Result<Exp, ()> {
         for t in seps()  {
@@ -140,14 +199,7 @@ impl Parser {
         Err(())
     }
 
-    fn unops() -> Vec<Token> {
-        vec![
-            Token::Not,
-            Token::BitNot,
-            Token::Minus,
-            Token::Mult,
-        ]
-    }
+
     // <unop> ::= ! | ~ | - | *
     pub fn parseUnop(&mut self) -> Result<Exp, ()> {
         for t in unops() {
@@ -163,33 +215,7 @@ impl Parser {
     //<binop> ::= . | -> | * | / | % | + | - | << | >>
     //    | < | <= | >= | > | == | !=
     //    | & | ^ | | | && | || | ? | :
-    fn binops() -> Vec<Token> {
-        vec![
-            Token::FieldSelect,
-            Token::FieldDeref,
-            Token::Mult,
-            Token::Div,
-            Token::Mod,
-            Token::Mod,
-            Token::Plus,
-            Token::Minus,
-            Token::LShift,
-            Token::RShift,
-            Token::Lt,
-            Token::Lte,
-            Token::Gte,
-            Token::Gt,
-            Token::Equality,
-            Token::NotEq,
-            Token::And,
-            Token::Xor,
-            Token::Or,
-            Token::BooleanAnd,
-            Token::BooleanOr,
-            Token::TernIf,
-            Token::TernElse,
-        ]
-    }
+
 
     pub fn parseBinop(&mut self) -> Result<Exp, ()> {
         for t in binops() {
@@ -201,21 +227,7 @@ impl Parser {
         Err(())
     }
 
-    fn asnops() -> Vec<Token>{
-        vec![
-            Token::Equal,
-            Token::PlusEq,
-            Token::MinusEq,
-            Token::MultEq,
-            Token::DivEq,
-            Token::ModEq,
-            Token::LShiftEq,
-            Token::RShiftEq,
-            Token::AndEq,
-            Token::XorEq,
-            Token::OrEq,
-        ]
-    }
+
     //<asnop> ::= = | += | -= | *= | /= | %= | <<= | >>=
     //    | &= | ^= | |=
     pub fn parseAsnop(&mut self) -> Result<Exp, ()> {
@@ -228,12 +240,7 @@ impl Parser {
 
         Err(())
     }
-    fn postops() -> Vec<Token>{
-        vec![
-            Token::PostMinusEq,
-            Token::PostPlusEq,
-        ]
-    }
+
     //<postop> ::= -- | ++
     pub fn parsePostop(&mut self) -> Result<Exp, ()> {
         for t in postops() {
@@ -371,17 +378,17 @@ impl Parser {
               | . <fid> | . <fid> <exp'> | -> <fid> | -> <fid> <exp'> | [ <exp> ] | [ <exp> ] <exp'>
 
     */
-    pub fn _parseExp (&mut self, &mut acc: Vec<Token> ) -> Vec<Token> {
-        let mut startTokens = self.binops();
+    pub fn _parseExp (&mut self, acc: &mut Vec<Token> ) -> Vec<Token> {
+        let mut startTokens = binops();
         startTokens.push(Token::LBracket);
         for t in startTokens{
             match self.eat(t) {
                 _ => ()
             }
         }
-        acc
+        acc.to_vec()
     }
-    pub fn parseExp() -> Result<Exp, ()> {
+    pub fn parseExp(&mut self) -> Result<Exp, ()> {
 
         Err(())
     }
