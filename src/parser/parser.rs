@@ -114,6 +114,43 @@ fn exprTokens() -> Vec<Token> {
     ]
 }
 
+type ParseResult = Result<Exp, ()>;
+
+fn tryParseWithoutFail(
+    f: fn(parser: &mut Parser) -> ParseResult,
+    acc: &mut Vec<Either<Exp, Token>>,
+    parser: &mut Parser)
+{
+    match f(parser) {
+        Ok(e) => acc.push(Either::Left(e)),
+        _ => ()
+    }
+}
+
+fn tryParseWithFail(
+    f: fn(parser: &mut Parser) -> ParseResult,
+    acc: &mut Vec<Either<Exp, Token>>,
+    parser: &mut Parser,
+    message: String )
+{
+    match f(parser) {
+        Ok(e) => acc.push(Either::Left(e)),
+        _ => panic!(message),
+    }
+}
+
+type EatResult = Result<Token, ()>;
+fn tryEatWithFail(
+    f: fn(parser: &mut Parser) -> EatResult,
+    acc: &mut Vec<Either<Exp, Token>>,
+    parser: &mut Parser,
+    message: String
+) {
+    match f(parser) {
+        Ok(t) => acc.push(Either::Right(t)),
+        _ => panic!(message),
+    }
+}
 
 #[derive(Clone)]
 pub struct Parser {
@@ -129,6 +166,8 @@ impl Parser {
             head,
         }
     }
+
+
 
     fn eat(&mut self, t: Token) -> Result<Token, ()>{
         match self.head {
@@ -344,12 +383,16 @@ impl Parser {
         ] {
             match self.eat(t) {
                 Ok(Token::Struct) => {
-                    let mut id = match self.parseId() {
-                        Ok(e) => Either::Left(e),
-                        _ => panic!("No identifier for struct"),
+                    let f = |parser: &mut Parser|{
+                        parser.parseId()
                     };
-                    _tpAcc.push(Either::Right(t));
-                    _tpAcc.push(id);
+                    _tpAcc.push(Either::Right(Token::Struct));
+                    tryParseWithFail(
+                        f,
+                        &mut _tpAcc,
+                        self,
+                        String::from("failed to parse id for struct, none specified")
+                    );
                     self._parseTp(&mut _tpAcc);
                     return Ok(Exp::Tp(_tpAcc));
                 },
@@ -514,55 +557,62 @@ impl Parser {
             match self.eat(t) {
                 Ok(Token::Alloc) => {
                     acc.push(Either::Right(Token::Alloc));
-                    match self.eat(Token::LParen) {
-                        Ok(_) => {
-                            match self.parseTp() {
-                                Ok(t) => acc.push(Either::Left(t)),
-                                _ => (),
-                            };
-                            match self.eat(Token::RParen){
-                                Ok(_) => {
-                                    self._parseExp(&mut acc);
-                                    return Ok(Exp::Expr(acc));
-                                }
-                                _ => panic!("unmatched opening parentheses"),
-                            }
-                        }
-                        _ => panic!("syntax error, alloc requires a declaration"),
-                    }
+                    tryEatWithFail(
+                        |parser| parser.eat(Token::LParen),
+                        &mut acc,
+                        self,
+                        String::from("syntax error, alloc requires a declaration")
+                    );
+                    tryParseWithFail(
+                        |parser| parser.parseTp(),
+                        &mut acc,
+                        self,
+                        String::from("must specify argument to alloc")
+                    );
+                    tryEatWithFail(
+                        |parser| parser.eat(Token::RParen),
+                        &mut acc,
+                        self,
+                        String::from("unmatched closing parentheses")
+                    );
+                    self._parseExp(&mut acc);
+                    return Ok(Exp::Expr(acc));
                 }
                 Ok(Token::AllocArray) => {
                     acc.push(Either::Right(Token::AllocArray));
-                    match self.eat(Token::RParen) {
-                        Ok(_) => {
-                            match self.parseTp() {
-                                Ok(t) => {
-                                    acc.push(Either::Left(t));
-                                    match self.eat(Token::Comma) {
-                                        Ok(_) => {
-                                            match self.parseExp() {
-                                                Ok(e) => {
-                                                    acc.push(Either::Left(e));
-                                                    match self.eat(Token::RParen) {
-                                                        Ok(_) => {
-                                                            self._parseExp(&mut acc);
-                                                            return Ok(Exp::Expr(acc));
-                                                        },
-                                                        _ => panic!("Missing closing bracket"),
-                                                    }
-                                                }
-                                                _ => panic!("expression required as second argument to alloc_array"),
-                                            }
-                                        }
-                                        _ => panic!("expression required as second argument to alloc_array"),
-                                    }
-                                },
-                                _ => (),
-                            }
-                        }
-                        _ => panic!("syntax error, no opening bracket for alloc array"),
-                    }
-                }
+                    tryEatWithFail(
+                        |parser|parser.eat(Token::RParen),
+                        &mut acc,
+                        self,
+                        String::from("alloc_array requires opening bracket arg")
+                    );
+                    tryParseWithFail(
+                        |parser|parser.parseTp(),
+                        &mut acc,
+                        self,
+                        String::from("first argument to alloc array must be specified")
+                    );
+                    tryEatWithFail(
+                        |parser| parser.eat(Token::Comma),
+                        &mut acc,
+                        self,
+                        String::from("must specify expression for alloc array")
+                    );
+                    tryParseWithFail(
+                        |parser| parser.parseExp(),
+                        &mut acc,
+                        self,
+                        String::from("failed to parse expr for second arg in alloc array")
+                    );
+                    tryEatWithFail(
+                        |parser| parser.eat(Token::RParen),
+                        &mut acc,
+                        self,
+                        String::from("missing closing bracket in alloc array")
+                    );
+                    self._parseExp(&mut acc);
+                    return Ok(Exp::Expr(acc));
+                },
                 Ok(t) => {
                     acc.push(Either::Right(t));
                     self._parseExp(&mut acc);
