@@ -4,6 +4,7 @@ use std::vec::Vec;
 use std::result;
 use std::collections::VecDeque;
 use std::string::String;
+use either::Either;
 
 /*
 The purpose of the parser is to apply semantic meaning to our language lexemes.
@@ -27,7 +28,7 @@ enum Exp{
     Asnop(Token),
     Postop(Token),
     Tp(Vec<Token>),
-    Expr(Vec<Token>),
+    Expr( Vec<Either<Exp,Token>>),
 }
 fn seps() -> Vec<Token> {
     vec![
@@ -100,6 +101,20 @@ fn postops() -> Vec<Token>{
         Token::PostPlusEq,
     ]
 }
+fn exprTokens() -> Vec<Token> {
+    vec![
+        Token::LParen,
+        Token::True,
+        Token::False,
+        Token::Num(1),
+        Token::Undefined(None),
+        Token::Alloc,
+        Token::AllocArray,
+        Token::Null,
+    ]
+}
+
+
 #[derive(Clone)]
 pub struct Parser {
     lexer: Lexer,
@@ -162,6 +177,7 @@ impl Parser {
     | &= | ^= | |=
     <postop> ::= -- | ++
      */
+    // TODO?: support for stringlit and chrlit
 
     // <id> ::= [A-Za-z_][A-Za-z0-9_]*
     pub fn parseId(&mut self) -> Result<Exp, ()>{
@@ -169,7 +185,7 @@ impl Parser {
         loop {
             match self.eat(Token::Undefined(None)){
                 Ok(t) => tokens.push(t),
-                Err(()) => break,
+                Err(_) => break,
             }
         }
         if tokens.len() > 0 {
@@ -354,7 +370,7 @@ impl Parser {
     /*
     Similar to <tp>, <exp> consists of a lot of left recursive generators
     <exp> ::= ( <exp> )
-    | <num> | <strlit> | <chrlit> | true | false | NULL
+    | <num> | true | false | NULL
     | <vid> | <exp> <binop> <exp> | <unop> <exp>
     | <exp> ? <exp> : <exp>
     | <vid> ( [<exp> (, <exp>)*] )
@@ -365,7 +381,7 @@ impl Parser {
     Using Paull's algorithm we get the following
 
     <exp> ::= ( <exp> ) | ( <exp> ) <exp'> | <num> | <num> <exp'>
-              |<strlit>| <strlit> <exp'> | <chrlit> | <chrlit> <exp'> | true | true <exp'>
+              | true | true <exp'>
               | false | false <exp'> | NULL | NULL <exp'> | <vid> | <vid> <exp'> | <unop><exp> | <unop> <exp> <exp'>
               | <vid> ( [<exp> (, <exp>)*] )
               | <vid> ( [<exp> (, <exp>)*] ) <exp'>
@@ -378,18 +394,185 @@ impl Parser {
               | . <fid> | . <fid> <exp'> | -> <fid> | -> <fid> <exp'> | [ <exp> ] | [ <exp> ] <exp'>
 
     */
-    pub fn _parseExp (&mut self, acc: &mut Vec<Token> ) -> Vec<Token> {
+    fn _parseExp (&mut self, acc: &mut Vec<Either<Exp, Token>> ){
         let mut startTokens = binops();
         startTokens.push(Token::LBracket);
         for t in startTokens{
             match self.eat(t) {
+                Ok(Token::LBracket) => {
+                    acc.push(Either::Right(Token::LBracket));
+                    match self.parseExp() {
+                        Ok(e) => acc.push(Either::Left(e)),
+                        _ => (),
+                    }
+                    match self.eat(Token::RBracket) {
+                        Ok(Token::RBracket) => {
+                            acc.push(Either::Right(Token::RBracket));
+                            self._parseExp(acc);
+                        }
+                        _ => panic!("Improper syntax, missing closing bracket")
+                    }
+                }
+                Ok(Token::FieldSelect)
+                | Ok(Token::FieldDeref) => {
+                    acc.push(Either::Right(t));
+                    match self.parseId() {
+                        Ok(e) => acc.push(Either::Left(e)),
+                        _ => panic!("Invalid struct access, no field id"),
+                    }
+                    self._parseExp(acc);
+                }
+                Ok(Token::TernIf) => {
+                    acc.push(Either::Right(Token::TernIf));
+                    match self.parseExp() {
+                        Ok(e) => acc.push(Either::Left(e)),
+                        _ => (),
+                    }
+                    match self.eat(Token::Else) {
+                        Ok(t) => {
+                            acc.push(Either::Right(t));
+                            match self.parseExp() {
+                                Ok(e) => acc.push(Either::Left(e)),
+                                _ => ()
+                            }
+                            self._parseExp(acc);
+                        }
+                        _ => panic!("unmatched ternary else"),
+                    }
+                }
+                Ok(t) => {
+                    acc.push(Either::Right(t));
+                    match self.parseExp() {
+                        Ok(e) => acc.push(Either::Left(e)),
+                        _ => (),
+                    }
+                    self._parseExp(acc);
+                }
                 _ => ()
             }
         }
-        acc.to_vec()
     }
-    pub fn parseExp(&mut self) -> Result<Exp, ()> {
 
+
+    pub fn parseExp(&mut self) -> Result<Exp, ()> {
+        let mut acc: Vec<Either<Exp, Token>> = Vec::new();
+        let tokens = exprTokens();
+        // Try parsing none token values
+        match self.parseNum() {
+            Ok(e) => {
+                acc.push(Either::Left(e));
+                self._parseExp(&mut acc);
+                return Ok(Exp::Expr(acc))
+            },
+            _ => (),
+        };
+        match self.parseId() {
+            Ok(e) => {
+                acc.push(Either::Left(e));
+                match self.eat(Token::LParen) {
+                    Ok(t) => {
+                        acc.push(Either::Right(Token::LParen));
+                        loop{
+                            match self.parseExp() {
+                                Ok(e) => {
+                                    acc.push(Either::Left(e));
+                                    match self.eat(Token::Comma) {
+                                        Ok(_) => continue,
+                                        _ => break,
+                                    }
+                                },
+                                _ => break,
+                            }
+                        }
+                        match self.eat(Token::RParen) {
+                            Ok(_) => acc.push(Either::Right(Token::RParen)),
+                            _ => panic!("unmatched opening bracket"),
+                        }
+                        self._parseExp(&mut acc);
+                        return Ok(Exp::Expr(acc));
+                    }
+                    _ =>  {
+                        self._parseExp(&mut acc);
+                        return Ok(Exp::Expr(acc));
+                    }
+                }
+            }
+            _ => (),
+        };
+        match self.parseUnop() {
+            Ok(e) => {
+                acc.push(Either::Left(e));
+                match self.parseExp() {
+                    Ok(e) => acc.push(Either::Left(e)),
+                    _ => ()
+                }
+                let _exp = self._parseExp(&mut acc);
+                return Ok(Exp::Expr(acc));
+            }
+            _ => (),
+        };
+
+        for t in exprTokens() {
+            match self.eat(t) {
+                Ok(Token::Alloc) => {
+                    acc.push(Either::Right(Token::Alloc));
+                    match self.eat(Token::LParen) {
+                        Ok(_) => {
+                            match self.parseTp() {
+                                Ok(t) => acc.push(Either::Left(t)),
+                                _ => (),
+                            };
+                            match self.eat(Token::RParen){
+                                Ok(_) => {
+                                    self._parseExp(&mut acc);
+                                    return Ok(Exp::Expr(acc));
+                                }
+                                _ => panic!("unmatched opening parentheses"),
+                            }
+                        }
+                        _ => panic!("syntax error, alloc requires a declaration"),
+                    }
+                }
+                Ok(Token::AllocArray) => {
+                    acc.push(Either::Right(Token::AllocArray));
+                    match self.eat(Token::RParen) {
+                        Ok(_) => {
+                            match self.parseTp() {
+                                Ok(t) => {
+                                    acc.push(Either::Left(t));
+                                    match self.eat(Token::Comma) {
+                                        Ok(_) => {
+                                            match self.parseExp() {
+                                                Ok(e) => {
+                                                    acc.push(Either::Left(e));
+                                                    match self.eat(Token::RParen) {
+                                                        Ok(_) => {
+                                                            self._parseExp(&mut acc);
+                                                            return Ok(Exp::Expr(acc));
+                                                        },
+                                                        _ => panic!("Missing closing bracket"),
+                                                    }
+                                                }
+                                                _ => panic!("expression required as second argument to alloc_array"),
+                                            }
+                                        }
+                                        _ => panic!("expression required as second argument to alloc_array"),
+                                    }
+                                },
+                                _ => (),
+                            }
+                        }
+                        _ => panic!("syntax error, no opening bracket for alloc array"),
+                    }
+                }
+                Ok(t) => {
+                    acc.push(Either::Right(t));
+                    self._parseExp(&mut acc);
+                    return Ok(Exp::Expr(acc));
+                },
+                _ => (),
+            }
+        };
         Err(())
     }
 
