@@ -27,7 +27,7 @@ enum Exp{
     Binop(Token),
     Asnop(Token),
     Postop(Token),
-    Tp(Vec<Token>),
+    Tp(Vec<Either<Exp, Token>>), // TODO: tp changes using either
     Expr( Vec<Either<Exp,Token>>),
 }
 fn seps() -> Vec<Token> {
@@ -300,7 +300,7 @@ impl Parser {
     <tp> ::= B1 | B1<tp'> | ... | Bs | Bs<tp'>
     <tp'> ::= * | *<tp'> | [] | []<tp'>
     */
-    fn _parseTp(&mut self, acc: &mut Vec<Token>) -> Vec<Token> {
+    fn _parseTp(&mut self, acc: &mut Vec<Either<Exp,Token>>){
         for t in vec![
             Token::Mult,
             Token::LBracket,
@@ -309,24 +309,31 @@ impl Parser {
                 Ok(Token::LBracket) => {
                     match self.eat(Token::RBracket) {
                         Ok(_) => {
-                            acc.push(Token::LBracket);
-                            acc.push(Token::RBracket);
-                            return self._parseTp(acc);
+                            acc.push(Either::Right(Token::LBracket));
+                            acc.push(Either::Right(Token::RBracket));
+                            self._parseTp(acc);
                         },
                         _ => panic!("Unmatched left square bracket in source"),
                     }
                 }
                 Ok(t) => {
-                    acc.push(Token::PointerDeref);
-                    return self._parseTp(acc);
+                    acc.push(Either::Right(Token::PointerDeref));
+                    self._parseTp(acc);
                 }
                 _ => (),
             }
         }
-        acc.to_vec()
     }
     pub fn parseTp(&mut self) -> Result<Exp, ()> {
-        let mut _tpAcc: Vec<Token> = vec![];
+        let mut _tpAcc: Vec<Either<Exp, Token>> = vec![];
+        match self.parseId() {
+            Ok(e) => {
+                _tpAcc.push(Either::Left(e));
+                self._parseTp(&mut _tpAcc);
+                return Ok(Exp::Tp(_tpAcc));
+            }
+            _ => ()
+        };
         for t in vec![
             Token::Int,
             Token::Bool,
@@ -334,32 +341,23 @@ impl Parser {
             Token::String,
             Token::Void,
             Token::Struct,
-            Token::Undefined(None),
         ] {
             match self.eat(t) {
+                Ok(Token::Struct) => {
+                    let mut id = match self.parseId() {
+                        Ok(e) => Either::Left(e),
+                        _ => panic!("No identifier for struct"),
+                    };
+                    _tpAcc.push(Either::Right(t));
+                    _tpAcc.push(id);
+                    self._parseTp(&mut _tpAcc);
+                    return Ok(Exp::Tp(_tpAcc));
+                },
+
                 Ok(t) => {
-                    match t {
-                        Token::Struct => {
-                            let mut id = match self.parseId() {
-                                Ok(Exp::Id(t)) => t,
-                                _ => panic!("No identifier for struct"),
-                            };
-                            _tpAcc.push(t);
-                            _tpAcc.append(&mut id);
-                        }
-                        Token::Undefined(_) => {
-                            _tpAcc.push(t);
-                            match self.parseId() {
-                                Ok(Exp::Id(result)) => {
-                                    _tpAcc.append(&mut result.clone());
-                                }
-                                _ => (),
-                            }
-                        }
-                        _ => _tpAcc.push(t),
-                    }
+                    _tpAcc.push(Either::Right(t));
                     let leftRecursion = self._parseTp(&mut _tpAcc);
-                    return Ok(Exp::Tp(leftRecursion))
+                    return Ok(Exp::Tp(_tpAcc));
                 },
                 _ => (),
             }
@@ -581,16 +579,15 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn vecCheck<T: PartialEq>(v1: Vec<T>, v2: Vec<T>) {
+    use std::fmt::Debug;
+    fn vecCheck<T: PartialEq + Debug>(v1: Vec<T>, v2: Vec<T>) {
         assert_eq!(v1.len(), v2.len());
         let count = v1
             .into_iter()
             .zip(v2)
-            .filter(|(a, b)| {
-                *a != *b
+            .map(|(a, b)| {
+                assert_eq!(a, b)
             }).count();
-        assert_eq!(count, 0);
     }
     #[test]
     fn parsingLexicalTokens() {
@@ -710,13 +707,19 @@ mod tests {
     fn parsingTp() {
         let mut parser = Parser::new(&mut String::from("./src/parser/tests/tp.txt"));
         let expectedResult: Vec<Result<Exp, ()>> = vec![
-            Ok(Exp::Tp(vec![Token::Int])),
-            Ok(Exp::Tp(vec![Token::Char])),
-            Ok(Exp::Tp(vec![Token::Bool])),
-            Ok(Exp::Tp(vec![Token::String])),
-            Ok(Exp::Tp(vec![Token::Void])),
-            Ok(Exp::Tp(vec![Token::Struct, Token::Undefined(Some('i')), Token::PointerDeref])),
-            Ok(Exp::Tp(vec![Token::Undefined(Some('i')), Token::PointerDeref, Token::PointerDeref]))
+            Ok(Exp::Tp(vec![Either::Right(Token::Int)])),
+            Ok(Exp::Tp(vec![Either::Right(Token::Char)])),
+            Ok(Exp::Tp(vec![Either::Right(Token::Bool)])),
+            Ok(Exp::Tp(vec![Either::Right(Token::String)])),
+            Ok(Exp::Tp(vec![Either::Right(Token::Void)])),
+            Ok(Exp::Tp(vec![
+                Either::Right(Token::Struct),
+                Either::Left(Exp::Id(vec![Token::Undefined(Some('i'))])),
+                Either::Right(Token::PointerDeref)])),
+            Ok(Exp::Tp(vec![
+                Either::Left(Exp::Id(vec![Token::Undefined(Some('i'))])),
+                Either::Right(Token::PointerDeref),
+                Either::Right(Token::PointerDeref)]))
         ];
         let mut results = Vec::new();
         loop {
