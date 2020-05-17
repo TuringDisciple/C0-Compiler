@@ -1,0 +1,60 @@
+<id> ::= [A-Za-z_][A-Za-z0-9_]*
+<num> ::= <decnum> | <hexnum>
+<decnum> ::= 0 | [1-9][0-9]*
+<hexnum> ::= 0[xX][0-9a-fA-F]+
+<strlit> ::= "<schar>*"
+<chrlit> ::= ’<cchar>’
+<liblit> ::= <<lchar>*>
+<schar> ::= <nchar> | <esc>
+<cchar> ::= <nchar> | <esc> | " | \0
+<nchar> ::= (normal printing character except ")
+<lchar> ::= (normal printing character except >)
+<esc> ::= \n | \t | \v | \b | \r | \f | \a
+| \\ | \’ | \"
+<sep> ::= ( | ) | [ | ] | { | } | , | ;
+<unop> ::= ! | ~ | - | *
+<binop> ::= . | -> | * | / | % | + | - | << | >>
+| < | <= | >= | > | == | !=
+| & | ^ | | | && | || | ? | :
+<asnop> ::= = | += | -= | *= | /= | %= | <<= | >>=
+| &= | ^= | |=
+<postop> ::= -- | ++
+--------------------    
+<tp> ::= int | bool | string | char | void
+    | <tp> * | <tp> [ ] | struct <sid> | <aid>
+---------------------    
+<exp> ::= ( <exp> )
+| <num> | true | false | NULL
+| <vid> | <exp> <binop> <exp> | <unop> <exp>
+| <exp> ? <exp> : <exp>
+| <vid> ( [<exp> (, <exp>)*] )
+| <exp> . <fid> | <exp> -> <fid>
+| <exp> [ <exp> ]
+| alloc ( <tp> ) | alloc_array ( <tp> , <exp> )
+----------------------
+<prog> ::= (<gdecl> | <gdefn>)*
+-----------------------
+<gdecl> ::= struct <sid> ;
+| <tp> <vid> ( [<tp> <vid> (, <tp> <vid>)*] ) ;
+| #use <liblit> \n | #use <strlit> \n
+<gdefn> ::= struct <sid> { (<tp> <fid> ;)* } ;
+| <tp> <vid> ( [<tp> <vid> (, <tp> <vid>)*] ) { <stmt>* }
+| typedef <tp> <aid> ;
+--------------------
+<stmt> ::= <simple> ;
+| if ( <exp> ) <stmt> [ else <stmt> ]
+| while ( <exp> ) <stmt>
+| for ( [<simple>] ; <exp> ; [<simple>] ) <stmt>
+| return [<exp>] ;
+| { <stmt>* }
+| assert ( <exp> ) ;
+| error ( <exp> ) ;
+-----------------------
+<simple> ::= <lv> <asnop> <exp>
+| <lv> ++
+| <lv> --
+| <exp>
+| <tp> <vid> [= <exp>]
+------------------------
+<lv> ::= <vid> | <lv> . <fid> | <lv> -> <fid>
+| * <lv> | <lv> [ <exp> ] | ( <lv> )
